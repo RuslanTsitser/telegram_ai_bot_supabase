@@ -9,9 +9,11 @@ This project contains two Telegram bots implemented as Supabase Edge Functions:
 
 ### Deepseek Bot
 
-- Food nutrition analysis
-- Gift suggestions
-- Interactive commands
+- Food nutrition analysis in both private and group chats
+- Gift suggestions in private chats
+- Message relationship tracking in Supabase
+- Support for message editing and updates
+- Interactive commands with context-aware responses
 
 ### Telegram Bot
 
@@ -24,6 +26,7 @@ This project contains two Telegram bots implemented as Supabase Edge Functions:
 - [Supabase CLI](https://supabase.com/docs/guides/cli)
 - [Deno](https://deno.land/)
 - Telegram Bot Token (from [@BotFather](https://t.me/BotFather))
+- Supabase project with appropriate database tables
 
 ## Environment Variables
 
@@ -33,6 +36,8 @@ For both bots to work, you need to set up the following environment variables:
 # Deepseek Bot
 DEEPSEEK_BOT_TOKEN=your_bot_token
 DEEPSEEK_BOT_FUNCTION_SECRET=your_secret
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
 
 # Telegram Bot
 TELEGRAM_ECHO_BOT_TOKEN=your_bot_token
@@ -47,10 +52,23 @@ TELEGRAM_ECHO_BOT_FUNCTION_SECRET=your_secret
     supabase start
     ```
 
-2. Deploy the functions:
+2. Set up environment variables using the provided scripts:
 
     ```bash
-    supabase functions deploy deepseek-bot
+    # For Deepseek Bot
+    cd supabase/functions/deepseek-bot
+    ./set_env.sh
+    ```
+
+3. Deploy the functions:
+
+    ```bash
+    # Deploy Deepseek Bot
+    cd supabase/functions/deepseek-bot
+    ./deploy.sh
+
+    # Deploy Telegram Bot
+    cd supabase/functions/telegram-bot
     supabase functions deploy telegram-bot
     ```
 
@@ -59,8 +77,8 @@ TELEGRAM_ECHO_BOT_FUNCTION_SECRET=your_secret
 ### Deepseek Bot commands
 
 - `/start` - Start the bot and get instructions
-- "Оцени рацион" - Get food nutrition analysis
-- "Подскажи подарок" - Get gift suggestions
+- "Оцени рацион" - Get food nutrition analysis (works in both private and group chats)
+- "Подскажи подарок" - Get gift suggestions (works only in private chats)
 
 ### Telegram Bot commands
 
@@ -73,11 +91,28 @@ TELEGRAM_ECHO_BOT_FUNCTION_SECRET=your_secret
 supabase/
 ├── functions/
 │   ├── deepseek-bot/
-│   │   ├── index.ts
-│   │   ├── handle_calculate_food.ts
-│   │   └── handle_gift_suggestion.ts
+│   │   ├── index.ts              # Main bot logic
+│   │   ├── handle_calculate_food.ts  # Food analysis handler
+│   │   ├── handle_gift_suggestion.ts # Gift suggestion handler
+│   │   ├── set_env.sh            # Environment setup script
+│   │   ├── deploy.sh             # Deployment script
+│   │   ├── run.sh                # Local run script
+│   │   ├── deno.json             # Deno configuration
+│   │   └── .env                  # Environment variables
 │   └── telegram-bot/
 │       └── index.ts
+```
+
+## Database Schema
+
+The project uses Supabase to store message relationships:
+
+```sql
+message_relationships (
+  user_message_id bigint,
+  bot_message_id bigint,
+  chat_id bigint
+)
 ```
 
 ## Security
@@ -87,6 +122,7 @@ Both bots implement security measures:
 - Webhook secret verification
 - Environment variable protection
 - Error handling
+- Message relationship tracking for secure updates
 
 ## Contributing
 
