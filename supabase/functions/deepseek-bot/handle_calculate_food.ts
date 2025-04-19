@@ -15,34 +15,35 @@ export async function handleCalculateFood(message: string): Promise<string> {
 
 Общие — кбжу 0000/000/00/000 насыщ. 00 кл. 00 сах. 00
 
-Завтрак — кбжу ... насыщ. ... кл. ... сах. ...
-- Продукт: кбжу ... насыщ. ... кл. ... сах. ...
+Завтрак — кбжу 0000/000/00/000 насыщ. 00 кл. 00 сах. 00
+- Продукт: кбжу 0000/000/00/000 насыщ. 00 кл. 00 сах. 00
 ...
 
-Итог — (анализ, рекомендации)`
+Итог — (анализ, рекомендации)`;
 
-  const response = await fetch('https://api.piapi.ai/v1/chat/completions', {
-    method: 'POST',
+  const response = await fetch("https://api.piapi.ai/v1/chat/completions", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${Deno.env.get('PIAPI_KEY')}`
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${Deno.env.get("PIAPI_KEY")}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: "gpt-4o-mini",
       messages: [
         {
-          role: 'system',
-          content: systemPrompt
+          role: "system",
+          content: systemPrompt,
         },
         {
-          role: 'user',
-          content: message
-        }
+          role: "user",
+          content: message,
+        },
       ],
-      temperature: 0.7
-    })
-  })
+      temperature: 0.7,
+    }),
+  });
 
-  const data = await response.json()
-  return data.choices?.[0]?.message?.content || 'Не удалось получить ответ. Попробуй снова.'
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content ||
+    "Не удалось получить ответ. Попробуй снова.";
 }

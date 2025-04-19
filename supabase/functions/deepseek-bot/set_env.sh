@@ -1,0 +1,1 @@
+supabase secrets set --env-file supabase/functions/deepseek-bot/.env
