@@ -1,133 +1,193 @@
-# Telegram Bots with Supabase Functions
+# Telegram Bot для анализа питания и подбора подарков
 
-This project contains two Telegram bots implemented as Supabase Edge Functions:
+Telegram бот, который помогает анализировать рацион питания и подбирать подарки. Бот использует GPT-4 для анализа текстовых описаний и изображений еды.
 
-1. **Deepseek Bot** - A bot that helps with food nutrition analysis and gift suggestions
-2. **Telegram Bot** - A basic Telegram bot template
+## Функциональность
 
-## Features
+### 🍽 Анализ рациона
 
-### Deepseek Bot
+- Анализ текстового описания рациона за день
+- Расчет КБЖУ и других показателей
+- Разделение по приемам пищи
+- Рекомендации по сбалансированности питания
 
-- Food nutrition analysis in both private and group chats
-- Gift suggestions in private chats
-- Message relationship tracking in Supabase
-- Support for message editing and updates
-- Interactive commands with context-aware responses
+### 📸 Анализ фото еды
 
-### Telegram Bot
+- Распознавание блюд на фотографиях
+- Оценка питательной ценности
+- Расчет калорий, белков, жиров, углеводов
+- Рекомендации по питательности
 
-- Basic command handling
-- Ping functionality
-- Webhook support
+### 🎁 Подбор подарков
 
-## Prerequisites
+- Персонализированные рекомендации
+- Учет предпочтений и интересов
+- Различные ценовые категории
 
-- [Supabase CLI](https://supabase.com/docs/guides/cli)
-- [Deno](https://deno.land/)
-- Telegram Bot Token (from [@BotFather](https://t.me/BotFather))
-- Supabase project with appropriate database tables
+## Технологии
 
-## Environment Variables
+- Deno
+- Telegram Bot API
+- Supabase
+- GPT-4 API
+- TypeScript
 
-For both bots to work, you need to set up the following environment variables:
+## Установка и запуск
+
+1. Клонируйте репозиторий:
 
 ```bash
-# Deepseek Bot
-DEEPSEEK_BOT_TOKEN=your_bot_token
-DEEPSEEK_BOT_FUNCTION_SECRET=your_secret
+git clone [repository-url]
+cd telegram_bot_supabase
+```
+
+2. Создайте файл `.env` в корневой директории:
+
+```env
+DEEPSEEK_BOT_TOKEN=your_telegram_bot_token
+DEEPSEEK_BOT_FUNCTION_SECRET=your_function_secret
 SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# Telegram Bot
-TELEGRAM_ECHO_BOT_TOKEN=your_bot_token
-TELEGRAM_ECHO_BOT_FUNCTION_SECRET=your_secret
+SUPABASE_ANON_KEY=your_supabase_ANON_KEY
+PIAPI_KEY=your_piapi_key
 ```
 
-## Local Development
+3. Установите зависимости:
 
-1. Start the Supabase local development environment:
-
-    ```bash
-    supabase start
-    ```
-
-2. Set up environment variables using the provided scripts:
-
-    ```bash
-    # For Deepseek Bot
-    cd supabase/functions/deepseek-bot
-    ./set_env.sh
-    ```
-
-3. Deploy the functions:
-
-    ```bash
-    # Deploy Deepseek Bot
-    cd supabase/functions/deepseek-bot
-    ./deploy.sh
-
-    # Deploy Telegram Bot
-    cd supabase/functions/telegram-bot
-    supabase functions deploy telegram-bot
-    ```
-
-## Bot Commands
-
-### Deepseek Bot commands
-
-- `/start` - Start the bot and get instructions
-- "Оцени рацион" - Get food nutrition analysis (works in both private and group chats)
-- "Подскажи подарок" - Get gift suggestions (works only in private chats)
-
-### Telegram Bot commands
-
-- `/start` - Welcome message
-- `/ping` - Check bot response time
-
-## Project Structure
-
-```schema
-supabase/
-├── functions/
-│   ├── deepseek-bot/
-│   │   ├── index.ts              # Main bot logic
-│   │   ├── handle_calculate_food.ts  # Food analysis handler
-│   │   ├── handle_gift_suggestion.ts # Gift suggestion handler
-│   │   ├── set_env.sh            # Environment setup script
-│   │   ├── deploy.sh             # Deployment script
-│   │   ├── run.sh                # Local run script
-│   │   ├── deno.json             # Deno configuration
-│   │   └── .env                  # Environment variables
-│   └── telegram-bot/
-│       └── index.ts
+```bash
+deno cache --reload main.ts
 ```
 
-## Database Schema
+4. Запустите бота локально:
 
-The project uses Supabase to store message relationships:
-
-```sql
-message_relationships (
-  user_message_id bigint,
-  bot_message_id bigint,
-  chat_id bigint
-)
+```bash
+deno run --allow-net --allow-env main.ts
 ```
 
-## Security
+## Деплой
 
-Both bots implement security measures:
+### Локальная разработка
 
-- Webhook secret verification
-- Environment variable protection
-- Error handling
-- Message relationship tracking for secure updates
+1. Запустите локальное окружение Supabase:
 
-## Contributing
+```bash
+supabase start
+```
 
-Feel free to submit issues and enhancement requests.
+2. Настройте переменные окружения:
 
-## License
+```bash
+cd supabase/functions/deepseek-bot
+./set_env.sh
+```
 
-This project is licensed under the MIT License.
+### Настройка Telegram для локального тестирования
+
+1. Создайте бота через [@BotFather](https://t.me/BotFather) и получите токен
+
+2. Настройте вебхук для локального тестирования:
+
+```bash
+# Установите ngrok для создания публичного URL
+brew install ngrok  # для macOS
+# или скачайте с https://ngrok.com/download
+
+# Запустите ngrok для проксирования локального порта
+ngrok http 54321
+
+# Скопируйте полученный HTTPS URL (например, https://xxxx-xx-xx-xxx-xx.ngrok.io)
+```
+
+3. Установите вебхук для бота:
+
+```bash
+# Замените {BOT_TOKEN} на токен вашего бота
+# Замените {NGROK_URL} на URL, полученный от ngrok
+curl -F "url={NGROK_URL}/functions/v1/deepseek-bot" \
+     -F "secret_token={DEEPSEEK_BOT_FUNCTION_SECRET}" \
+     https://api.telegram.org/bot{BOT_TOKEN}/setWebhook
+```
+
+4. Проверьте настройку вебхука:
+
+```bash
+curl https://api.telegram.org/bot{BOT_TOKEN}/getWebhookInfo
+```
+
+5. Для остановки вебхука после тестирования:
+
+```bash
+curl https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook
+```
+
+### Деплой в Supabase
+
+1. Деплой функции:
+
+```bash
+cd supabase/functions/deepseek-bot
+./deploy.sh
+```
+
+2. Проверьте статус деплоя:
+
+```bash
+supabase functions list
+```
+
+### Скрипты
+
+В директории `supabase/functions/deepseek-bot/` доступны следующие скрипты:
+
+- `set_env.sh` - настройка переменных окружения
+- `deploy.sh` - деплой функции в Supabase
+- `run.sh` - запуск функции локально
+
+## Использование
+
+### Анализ рациона
+
+1. Отправьте сообщение "Оцени рацион" и опишите свой рацион за день
+2. Бот проанализирует питательную ценность и даст рекомендации
+
+### Анализ фото еды
+
+1. Отправьте фотографию еды с подписью "Проанализируй изображение еды"
+2. Бот распознает блюдо и предоставит анализ питательной ценности
+
+### Подбор подарков
+
+1. Отправьте сообщение "Подскажи подарок" и опишите, кому ищете подарок
+2. Бот предложит несколько вариантов с учетом ваших пожеланий
+
+## Структура проекта
+
+```
+telegram_bot_supabase/
+├── supabase/
+│   └── functions/
+│       └── deepseek-bot/
+│           ├── index.ts              # Основной файл бота
+│           ├── handle_calculate_food.ts  # Обработчик анализа рациона
+│           ├── handle_food_image.ts  # Обработчик анализа фото
+│           └── handle_gift_suggestion.ts # Обработчик подбора подарков
+├── .env
+└── README.md
+```
+
+## Разработка
+
+### Добавление новых функций
+
+1. Создайте новый файл обработчика в директории `supabase/functions/deepseek-bot/`
+2. Импортируйте и используйте новый обработчик в `index.ts`
+3. Обновите приветственное сообщение, если необходимо
+
+### Тестирование
+
+1. Запустите бота локально
+2. Протестируйте новую функциональность в Telegram
+3. Проверьте логи на наличие ошибок
+
+## Лицензия
+
+MIT
