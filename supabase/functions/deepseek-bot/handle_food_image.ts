@@ -1,3 +1,5 @@
+import { foodImagePrompt } from "./prompts/food_image.ts";
+
 export async function handleFoodImage(
   fileId: string,
   botToken: string,
@@ -24,34 +26,7 @@ export async function handleFoodImage(
       String.fromCharCode(...new Uint8Array(imageBuffer)),
     );
 
-    const systemPrompt =
-      `Ты — эксперт по анализу изображений еды и нутрициолог. Твоя задача:
-
-1. Определить, что изображено на фото (название блюда/продуктов)
-2. Оценить примерный вес порции
-3. Рассчитать примерную питательную ценность:
-   - Калории
-   - Белки
-   - Жиры (в том числе насыщенные)
-   - Углеводы (в том числе сахар)
-   - Клетчатка
-4. Дать краткие рекомендации по питательности блюда
-
-Формат ответа:
-Блюдо: [название]
-Порция: [примерный вес]
-
-Питательная ценность:
-Калории: [значение]
-Белки: [значение] г
-Жиры: [значение] г
-- Насыщенные: [значение] г
-Углеводы: [значение] г
-- Сахар: [значение] г
-Клетчатка: [значение] г
-
-Рекомендации:
-[краткий анализ и рекомендации]`;
+    const systemPrompt = foodImagePrompt;
 
     const response = await fetch("https://api.piapi.ai/v1/chat/completions", {
       method: "POST",
