@@ -1,1 +1,1 @@
-supabase functions deploy deepseek-bot --no-verify-jwt
+supabase functions deploy deepseek-bot --project-ref cmztehabpooymgggejgg --no-verify-jwt
