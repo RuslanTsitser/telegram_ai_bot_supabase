@@ -3,7 +3,10 @@ console.log(`Function "telegram-bot" up and running!`);
 import { Bot, webhookCallback } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleCalculateFood } from "./handle_calculate_food.ts";
-import { handleFoodImage } from "./handle_food_image.ts";
+import {
+  formatFoodAnalysisMessage,
+  handleFoodImage,
+} from "./handle_food_image.ts";
 
 const bot = new Bot(Deno.env.get("DEEPSEEK_BOT_TOKEN") || "");
 
@@ -69,22 +72,29 @@ bot.on("message", async (ctx) => {
   // Handle photo messages
   if (ctx.message.photo) {
     const caption = ctx.message.caption || "";
+    const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Get the highest quality photo
 
     if (caption.includes("Проанализируй изображение еды")) {
       console.log("received food photo for analysis", chatType);
-      const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Get the highest quality photo
       const response = await handleFoodImage(
         photo.file_id,
+        caption,
         Deno.env.get("DEEPSEEK_BOT_TOKEN") || "",
       );
 
+      const messageText = formatFoodAnalysisMessage(response);
+
       let sentMessage;
       if (chatType === "private") {
-        sentMessage = await ctx.reply(response);
+        sentMessage = await ctx.reply(messageText);
       } else if (chatType === "supergroup") {
-        sentMessage = await ctx.api.sendMessage(ctx.message.chat.id, response, {
-          reply_to_message_id: ctx.message.message_id,
-        });
+        sentMessage = await ctx.api.sendMessage(
+          ctx.message.chat.id,
+          messageText,
+          {
+            reply_to_message_id: ctx.message.message_id,
+          },
+        );
       }
 
       console.log("sentMessage food image", sentMessage);
@@ -105,6 +115,49 @@ bot.on("message", async (ctx) => {
       await ctx.reply(
         'Пожалуйста, добавьте подпись "Проанализируй изображение еды" к фотографии для её анализа.',
       );
+    }
+  }
+
+  // Handle text messages for food analysis
+  if (
+    ctx.message.text &&
+    ctx.message.text.includes("Проанализируй изображение еды")
+  ) {
+    console.log("received food text for analysis", chatType);
+    const response = await handleFoodImage(
+      null,
+      ctx.message.text,
+      Deno.env.get("DEEPSEEK_BOT_TOKEN") || "",
+    );
+
+    const messageText = formatFoodAnalysisMessage(response);
+
+    let sentMessage;
+    if (chatType === "private") {
+      sentMessage = await ctx.reply(messageText);
+    } else if (chatType === "supergroup") {
+      sentMessage = await ctx.api.sendMessage(
+        ctx.message.chat.id,
+        messageText,
+        {
+          reply_to_message_id: ctx.message.message_id,
+        },
+      );
+    }
+
+    console.log("sentMessage food text", sentMessage);
+
+    // Store the relationship in Supabase
+    if (sentMessage) {
+      const { data, error } = await supabase
+        .from("message_relationships")
+        .insert({
+          user_message_id: ctx.message.message_id,
+          bot_message_id: sentMessage.message_id,
+          chat_id: ctx.chat.id,
+        });
+
+      console.log("message_relationships food text", data, error);
     }
   }
 });

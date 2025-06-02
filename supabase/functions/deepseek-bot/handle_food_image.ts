@@ -1,32 +1,111 @@
 import { foodImagePrompt } from "./prompts/food_image.ts";
 
-export async function handleFoodImage(
-  fileId: string,
-  botToken: string,
-): Promise<string> {
-  try {
-    console.log("handleFoodImage", fileId, botToken);
-    // Get file path from Telegram
-    const fileResponse = await fetch(
-      `https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`,
-    );
-    const fileData = await fileResponse.json();
+interface FoodAnalysis {
+  description: string;
+  mass: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  sugar: number;
+  fats: number;
+  saturated_fats: number;
+  fiber: number;
+  nutrition_score: number;
+  recommendation: string;
+  error?: string;
+}
 
-    if (!fileData.ok) {
-      return "Извините, не удалось получить изображение.";
+export function formatFoodAnalysisMessage(response: FoodAnalysis): string {
+  if (response.error) {
+    return response.error;
+  }
+
+  return `🍽 ${response.description}\n\n` +
+    `📊 Питательная ценность:\n` +
+    `• Примерный вес: ${response.mass} г\n` +
+    `• Калории: ${response.calories} ккал\n` +
+    `• Белки: ${response.protein} г\n` +
+    `• Жиры: ${response.fats} г\n` +
+    `  - Насыщенные: ${response.saturated_fats} г\n` +
+    `• Углеводы: ${response.carbs} г\n` +
+    `  - Сахар: ${response.sugar} г\n` +
+    `• Клетчатка: ${response.fiber} г\n\n` +
+    `⭐ Оценка питательности: ${response.nutrition_score}/10\n\n` +
+    `💡 Рекомендации:\n${response.recommendation}`;
+}
+
+export async function handleFoodImage(
+  fileId: string | null,
+  userText: string | null,
+  botToken: string,
+): Promise<FoodAnalysis> {
+  try {
+    console.log("handleFoodImage", fileId, userText, botToken);
+
+    let imageContent = null;
+
+    if (fileId) {
+      // Get file path from Telegram
+      const fileResponse = await fetch(
+        `https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`,
+      );
+      const fileData = await fileResponse.json();
+
+      if (!fileData.ok) {
+        return {
+          description: "",
+          mass: 0,
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          sugar: 0,
+          fats: 0,
+          saturated_fats: 0,
+          fiber: 0,
+          nutrition_score: 0,
+          recommendation: "",
+          error: "Извините, не удалось получить изображение.",
+        };
+      }
+
+      const filePath = fileData.result.file_path;
+      const imageUrl =
+        `https://api.telegram.org/file/bot${botToken}/${filePath}`;
+
+      // Get image content as base64
+      const imageResponse = await fetch(imageUrl);
+      const imageBuffer = await imageResponse.arrayBuffer();
+      const base64Image = btoa(
+        String.fromCharCode(...new Uint8Array(imageBuffer)),
+      );
+
+      imageContent = {
+        type: "image_url",
+        image_url: {
+          url: `data:image/jpeg;base64,${base64Image}`,
+        },
+      };
     }
 
-    const filePath = fileData.result.file_path;
-    const imageUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
-
-    // Get image content as base64
-    const imageResponse = await fetch(imageUrl);
-    const imageBuffer = await imageResponse.arrayBuffer();
-    const base64Image = btoa(
-      String.fromCharCode(...new Uint8Array(imageBuffer)),
-    );
-
     const systemPrompt = foodImagePrompt;
+
+    const messages = [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: userText ||
+              "Проанализируй это изображение еды и предоставь детальный анализ питательной ценности.",
+          },
+          ...(imageContent ? [imageContent] : []),
+        ],
+      },
+    ];
 
     const response = await fetch("https://api.piapi.ai/v1/chat/completions", {
       method: "POST",
@@ -36,37 +115,68 @@ export async function handleFoodImage(
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt,
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text:
-                  "Проанализируй это изображение еды и предоставь детальный анализ питательной ценности.",
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`,
-                },
-              },
-            ],
-          },
-        ],
+        messages,
         temperature: 0.7,
       }),
     });
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content ||
-      "Извините, не удалось проанализировать изображение. Попробуйте еще раз.";
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return {
+        description: "",
+        mass: 0,
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        sugar: 0,
+        fats: 0,
+        saturated_fats: 0,
+        fiber: 0,
+        nutrition_score: 0,
+        recommendation: "",
+        error: "Извините, не удалось получить ответ от сервера.",
+      };
+    }
+
+    try {
+      // Try to parse the response as JSON to validate it
+      const jsonResponse = JSON.parse(content);
+      return jsonResponse; // Return the original JSON string
+    } catch (e) {
+      console.error("Error parsing JSON:", e);
+      // If parsing fails, return an error
+      return {
+        description: "",
+        mass: 0,
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        sugar: 0,
+        fats: 0,
+        saturated_fats: 0,
+        fiber: 0,
+        nutrition_score: 0,
+        recommendation: "",
+        error: "Извините, произошла ошибка при обработке ответа.",
+      };
+    }
   } catch (error) {
     console.error("Error processing food image:", error);
-    return "Извините, произошла ошибка при обработке изображения.";
+    return {
+      description: "",
+      mass: 0,
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      sugar: 0,
+      fats: 0,
+      saturated_fats: 0,
+      fiber: 0,
+      nutrition_score: 0,
+      recommendation: "",
+      error: "Извините, произошла ошибка при обработке ответа.",
+    };
   }
 }
