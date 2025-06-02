@@ -98,15 +98,48 @@ bot.on("message", async (ctx) => {
 
       // Store the relationship in Supabase
       if (sentMessage) {
-        const { data, error } = await supabase
-          .from("message_relationships")
-          .insert({
-            user_message_id: ctx.message.message_id,
-            bot_message_id: sentMessage.message_id,
-            chat_id: ctx.chat.id,
-          });
+        // Store message relationship
+        const { data: relationshipData, error: relationshipError } =
+          await supabase
+            .from("message_relationships")
+            .insert({
+              user_message_id: ctx.message.message_id,
+              bot_message_id: sentMessage.message_id,
+              chat_id: ctx.chat.id,
+            });
 
-        console.log("message_relationships food image", data, error);
+        console.log(
+          "message_relationships food image",
+          relationshipData,
+          relationshipError,
+        );
+
+        // Store food analysis data
+        if (!response.error) {
+          const { data: analysisData, error: analysisError } = await supabase
+            .from("food_analysis")
+            .insert({
+              chat_id: ctx.chat.id,
+              user_id: ctx.from.id,
+              message_id: ctx.message.message_id,
+              description: response.description,
+              mass: response.mass,
+              calories: response.calories,
+              protein: response.protein,
+              carbs: response.carbs,
+              sugar: response.sugar,
+              fats: response.fats,
+              saturated_fats: response.saturated_fats,
+              fiber: response.fiber,
+              nutrition_score: response.nutrition_score,
+              recommendation: response.recommendation,
+              has_image: true,
+              image_file_id: photo.file_id,
+              user_text: caption,
+            });
+
+          console.log("food_analysis", analysisData, analysisError);
+        }
       }
     } else if (chatType === "private") {
       await ctx.reply(
@@ -146,15 +179,47 @@ bot.on("message", async (ctx) => {
 
     // Store the relationship in Supabase
     if (sentMessage) {
-      const { data, error } = await supabase
-        .from("message_relationships")
-        .insert({
-          user_message_id: ctx.message.message_id,
-          bot_message_id: sentMessage.message_id,
-          chat_id: ctx.chat.id,
-        });
+      // Store message relationship
+      const { data: relationshipData, error: relationshipError } =
+        await supabase
+          .from("message_relationships")
+          .insert({
+            user_message_id: ctx.message.message_id,
+            bot_message_id: sentMessage.message_id,
+            chat_id: ctx.chat.id,
+          });
 
-      console.log("message_relationships food text", data, error);
+      console.log(
+        "message_relationships food text",
+        relationshipData,
+        relationshipError,
+      );
+
+      // Store food analysis data
+      if (!response.error) {
+        const { data: analysisData, error: analysisError } = await supabase
+          .from("food_analysis")
+          .insert({
+            chat_id: ctx.chat.id,
+            user_id: ctx.from.id,
+            message_id: ctx.message.message_id,
+            description: response.description,
+            mass: response.mass,
+            calories: response.calories,
+            protein: response.protein,
+            carbs: response.carbs,
+            sugar: response.sugar,
+            fats: response.fats,
+            saturated_fats: response.saturated_fats,
+            fiber: response.fiber,
+            nutrition_score: response.nutrition_score,
+            recommendation: response.recommendation,
+            has_image: false,
+            user_text: ctx.message.text,
+          });
+
+        console.log("food_analysis", analysisData, analysisError);
+      }
     }
   }
 });
@@ -164,7 +229,66 @@ bot.on("edited_message", async (ctx) => {
   const chatType = ctx.editedMessage?.chat.type;
   console.log("edited message", ctx.editedMessage?.chat.id, chatType);
 
-  if (message.includes("Оцени рацион")) {
+  // Handle edited photo caption
+  if (ctx.editedMessage?.photo) {
+    const caption = ctx.editedMessage.caption || "";
+    const photo = ctx.editedMessage.photo[ctx.editedMessage.photo.length - 1];
+
+    if (caption.includes("Проанализируй изображение еды")) {
+      console.log(`edited food photo caption in ${chatType}`);
+      const response = await handleFoodImage(
+        photo.file_id,
+        caption,
+        Deno.env.get("DEEPSEEK_BOT_TOKEN") || "",
+      );
+
+      const messageText = formatFoodAnalysisMessage(response);
+
+      const { data } = await supabase
+        .from("message_relationships")
+        .select("bot_message_id")
+        .eq("user_message_id", ctx.editedMessage.message_id)
+        .eq("chat_id", ctx.editedMessage.chat.id)
+        .single();
+
+      if (data?.bot_message_id) {
+        await ctx.api.editMessageText(
+          ctx.editedMessage.chat.id,
+          data.bot_message_id,
+          messageText,
+        );
+
+        // Update or insert food analysis data
+        if (!response.error) {
+          const { data: analysisData, error: analysisError } = await supabase
+            .from("food_analysis")
+            .upsert({
+              chat_id: ctx.editedMessage.chat.id,
+              user_id: ctx.editedMessage.from.id,
+              message_id: ctx.editedMessage.message_id,
+              description: response.description,
+              mass: response.mass,
+              calories: response.calories,
+              protein: response.protein,
+              carbs: response.carbs,
+              sugar: response.sugar,
+              fats: response.fats,
+              saturated_fats: response.saturated_fats,
+              fiber: response.fiber,
+              nutrition_score: response.nutrition_score,
+              recommendation: response.recommendation,
+              image_file_id: photo.file_id,
+              user_text: caption,
+              has_image: true,
+            }, {
+              onConflict: "message_id,chat_id",
+            });
+
+          console.log("upserted food_analysis", analysisData, analysisError);
+        }
+      }
+    }
+  } else if (message.includes("Оцени рацион")) {
     console.log(`edited calculate food message in ${chatType}`);
     const response = await handleCalculateFood(message);
     console.log(`edited calculate food message in ${chatType} response`);
@@ -182,6 +306,58 @@ bot.on("edited_message", async (ctx) => {
         data.bot_message_id,
         response,
       );
+    }
+  } else if (message.includes("Проанализируй изображение еды")) {
+    console.log(`edited food analysis message in ${chatType}`);
+    const response = await handleFoodImage(
+      null,
+      message,
+      Deno.env.get("DEEPSEEK_BOT_TOKEN") || "",
+    );
+
+    const messageText = formatFoodAnalysisMessage(response);
+
+    const { data } = await supabase
+      .from("message_relationships")
+      .select("bot_message_id")
+      .eq("user_message_id", ctx.editedMessage.message_id)
+      .eq("chat_id", ctx.editedMessage.chat.id)
+      .single();
+
+    if (data?.bot_message_id) {
+      await ctx.api.editMessageText(
+        ctx.editedMessage.chat.id,
+        data.bot_message_id,
+        messageText,
+      );
+
+      // Update or insert food analysis data
+      if (!response.error) {
+        const { data: analysisData, error: analysisError } = await supabase
+          .from("food_analysis")
+          .upsert({
+            chat_id: ctx.editedMessage.chat.id,
+            user_id: ctx.editedMessage.from.id,
+            message_id: ctx.editedMessage.message_id,
+            description: response.description,
+            mass: response.mass,
+            calories: response.calories,
+            protein: response.protein,
+            carbs: response.carbs,
+            sugar: response.sugar,
+            fats: response.fats,
+            saturated_fats: response.saturated_fats,
+            fiber: response.fiber,
+            nutrition_score: response.nutrition_score,
+            recommendation: response.recommendation,
+            user_text: message,
+            has_image: false,
+          }, {
+            onConflict: "message_id,chat_id",
+          });
+
+        console.log("upserted food_analysis", analysisData, analysisError);
+      }
     }
   }
 });
