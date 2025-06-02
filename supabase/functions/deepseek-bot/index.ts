@@ -4,7 +4,6 @@ import { Bot, webhookCallback } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleCalculateFood } from "./handle_calculate_food.ts";
 import { handleFoodImage } from "./handle_food_image.ts";
-import { handleGiftSuggestion } from "./handle_gift_suggestion.ts";
 
 const bot = new Bot(Deno.env.get("DEEPSEEK_BOT_TOKEN") || "");
 
@@ -38,18 +37,6 @@ bot.on("message:text", async (ctx) => {
     } else if (message.includes("Оцени рацион")) {
       console.log("calculate food message");
       const response = await handleCalculateFood(message);
-      const sentMessage = await ctx.reply(response);
-      // Store the relationship in Supabase
-      await supabase
-        .from("message_relationships")
-        .insert({
-          user_message_id: ctx.message.message_id,
-          bot_message_id: sentMessage.message_id,
-          chat_id: ctx.chat.id,
-        });
-    } else if (message.includes("Подскажи подарок")) {
-      console.log("gift suggestion message");
-      const response = await handleGiftSuggestion(message);
       const sentMessage = await ctx.reply(response);
       // Store the relationship in Supabase
       await supabase
@@ -147,24 +134,6 @@ bot.on("edited_message", async (ctx) => {
       const response = await handleCalculateFood(message);
       console.log("edited calculate food message in private response");
       // Get the bot's message ID from Supabase
-      const { data } = await supabase
-        .from("message_relationships")
-        .select("bot_message_id")
-        .eq("user_message_id", ctx.editedMessage.message_id)
-        .eq("chat_id", ctx.editedMessage.chat.id)
-        .single();
-
-      if (data?.bot_message_id) {
-        await ctx.api.editMessageText(
-          ctx.editedMessage.chat.id,
-          data.bot_message_id,
-          response,
-        );
-      }
-    } else if (message.includes("Подскажи подарок")) {
-      console.log("edited gift suggestion message in private");
-      const response = await handleGiftSuggestion(message);
-      console.log("edited gift suggestion message in private response");
       const { data } = await supabase
         .from("message_relationships")
         .select("bot_message_id")
