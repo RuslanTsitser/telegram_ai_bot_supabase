@@ -72,17 +72,10 @@ export async function handleFoodImage(
       const imageUrl =
         `https://api.telegram.org/file/bot${botToken}/${filePath}`;
 
-      // Get image content as base64
-      const imageResponse = await fetch(imageUrl);
-      const imageBuffer = await imageResponse.arrayBuffer();
-      const base64Image = btoa(
-        String.fromCharCode(...new Uint8Array(imageBuffer)),
-      );
-
       imageContent = {
         type: "image_url",
         image_url: {
-          url: `data:image/jpeg;base64,${base64Image}`,
+          url: imageUrl,
         },
       };
     }
