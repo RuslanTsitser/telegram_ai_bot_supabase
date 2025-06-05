@@ -16,6 +16,42 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
 );
 
+// Утилита для выбора оптимального PhotoSize: выбираем версию с max(width, height) ближайшим к 640 сверху.
+// Если есть несколько с размером ≥ 640, выбираем ту, у которой max(width, height) минимален.
+// Если ни одной ≥ 640 нет, выбираем самую большую из доступных.
+function selectOptimalPhoto(
+  photos: Array<{ file_id: string; width: number; height: number }>,
+) {
+  // Вычислим массив объектов с полем size = max(width, height)
+  const withSize = photos.map((p) => ({
+    file_id: p.file_id,
+    width: p.width,
+    height: p.height,
+    size: Math.max(p.width, p.height),
+  }));
+
+  // Фильтруем те, у которых size >= 640
+  const aboveThreshold = withSize.filter((p) => p.size >= 640);
+
+  if (aboveThreshold.length > 0) {
+    // Из тех, что ≥ 640, берём с минимальным size
+    aboveThreshold.sort((a, b) => a.size - b.size);
+    return {
+      file_id: aboveThreshold[0].file_id,
+      width: aboveThreshold[0].width,
+      height: aboveThreshold[0].height,
+    };
+  }
+
+  // Если ни одного ≥ 640, выбираем максимальный по size
+  withSize.sort((a, b) => b.size - a.size);
+  return {
+    file_id: withSize[0].file_id,
+    width: withSize[0].width,
+    height: withSize[0].height,
+  };
+}
+
 bot.on("message", async (ctx) => {
   const chatType = ctx.message.chat.type;
   console.log(`${chatType} message`, ctx.message.chat.id);
@@ -26,7 +62,7 @@ bot.on("message", async (ctx) => {
 
     if (message === "/start" && chatType === "private") {
       console.log("start message");
-      ctx.reply(
+      await ctx.reply(
         "👋 Привет! Я бот для анализа питания.\n\n" +
           "📝 Вот что я умею:\n\n" +
           "🍽 Анализ рациона:\n" +
@@ -69,12 +105,18 @@ bot.on("message", async (ctx) => {
   // Handle photo messages
   if (ctx.message.photo) {
     const caption = ctx.message.caption || "";
-    const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Get the highest quality photo
+    // Выбираем PhotoSize с разрешением близким к 640×640
+    const photoSizes = ctx.message.photo.map((p) => ({
+      file_id: p.file_id,
+      width: p.width,
+      height: p.height,
+    }));
+    const optimalPhoto = selectOptimalPhoto(photoSizes);
 
     if (caption.includes("Проанализируй изображение еды")) {
       console.log("received food photo for analysis", chatType);
       const response = await handleFoodImage(
-        photo.file_id,
+        optimalPhoto.file_id,
         caption,
         Deno.env.get("DEEPSEEK_BOT_TOKEN") || "",
       );
@@ -134,7 +176,7 @@ bot.on("message", async (ctx) => {
               nutrition_score: response.nutrition_score,
               recommendation: response.recommendation,
               has_image: true,
-              image_file_id: photo.file_id,
+              image_file_id: optimalPhoto.file_id,
               user_text: caption,
             });
 
@@ -148,7 +190,7 @@ bot.on("message", async (ctx) => {
     }
   }
 
-  // Handle text messages for food analysis
+  // Handle text messages for food analysis (без фотографии)
   if (
     ctx.message.text &&
     ctx.message.text.includes("Проанализируй изображение еды")
@@ -225,19 +267,29 @@ bot.on("message", async (ctx) => {
 });
 
 bot.on("edited_message", async (ctx) => {
-  const message = ctx.editedMessage?.text || "";
-  const chatType = ctx.editedMessage?.chat.type;
-  console.log("edited message", ctx.editedMessage?.chat.id, chatType);
+  const edited = ctx.editedMessage;
+  if (!edited) return;
+
+  const message = edited.text || "";
+  const chat = edited.chat;
+  const chatType = chat.type;
+  console.log("edited message", chat.id, chatType);
 
   // Handle edited photo caption
-  if (ctx.editedMessage?.photo) {
-    const caption = ctx.editedMessage.caption || "";
-    const photo = ctx.editedMessage.photo[ctx.editedMessage.photo.length - 1];
+  if (edited.photo) {
+    const caption = edited.caption || "";
+    // Снова выбираем оптимальное разрешение
+    const photoSizes = edited.photo.map((p) => ({
+      file_id: p.file_id,
+      width: p.width,
+      height: p.height,
+    }));
+    const optimalPhoto = selectOptimalPhoto(photoSizes);
 
     if (caption.includes("Проанализируй изображение еды")) {
       console.log(`edited food photo caption in ${chatType}`);
       const response = await handleFoodImage(
-        photo.file_id,
+        optimalPhoto.file_id,
         caption,
         Deno.env.get("DEEPSEEK_BOT_TOKEN") || "",
       );
@@ -247,13 +299,13 @@ bot.on("edited_message", async (ctx) => {
       const { data } = await supabase
         .from("message_relationships")
         .select("bot_message_id")
-        .eq("user_message_id", ctx.editedMessage.message_id)
-        .eq("chat_id", ctx.editedMessage.chat.id)
+        .eq("user_message_id", edited.message_id)
+        .eq("chat_id", chat.id)
         .single();
 
       if (data?.bot_message_id) {
         await ctx.api.editMessageText(
-          ctx.editedMessage.chat.id,
+          chat.id,
           data.bot_message_id,
           messageText,
         );
@@ -263,9 +315,9 @@ bot.on("edited_message", async (ctx) => {
           const { data: analysisData, error: analysisError } = await supabase
             .from("food_analysis")
             .upsert({
-              chat_id: ctx.editedMessage.chat.id,
-              user_id: ctx.editedMessage.from.id,
-              message_id: ctx.editedMessage.message_id,
+              chat_id: chat.id,
+              user_id: edited.from.id,
+              message_id: edited.message_id,
               description: response.description,
               mass: response.mass,
               calories: response.calories,
@@ -277,7 +329,7 @@ bot.on("edited_message", async (ctx) => {
               fiber: response.fiber,
               nutrition_score: response.nutrition_score,
               recommendation: response.recommendation,
-              image_file_id: photo.file_id,
+              image_file_id: optimalPhoto.file_id,
               user_text: caption,
               has_image: true,
             }, {
@@ -296,13 +348,13 @@ bot.on("edited_message", async (ctx) => {
     const { data } = await supabase
       .from("message_relationships")
       .select("bot_message_id")
-      .eq("user_message_id", ctx.editedMessage.message_id)
-      .eq("chat_id", ctx.editedMessage.chat.id)
+      .eq("user_message_id", edited.message_id)
+      .eq("chat_id", chat.id)
       .single();
 
     if (data?.bot_message_id) {
       await ctx.api.editMessageText(
-        ctx.editedMessage.chat.id,
+        chat.id,
         data.bot_message_id,
         response,
       );
@@ -320,13 +372,13 @@ bot.on("edited_message", async (ctx) => {
     const { data } = await supabase
       .from("message_relationships")
       .select("bot_message_id")
-      .eq("user_message_id", ctx.editedMessage.message_id)
-      .eq("chat_id", ctx.editedMessage.chat.id)
+      .eq("user_message_id", edited.message_id)
+      .eq("chat_id", chat.id)
       .single();
 
     if (data?.bot_message_id) {
       await ctx.api.editMessageText(
-        ctx.editedMessage.chat.id,
+        chat.id,
         data.bot_message_id,
         messageText,
       );
@@ -336,9 +388,9 @@ bot.on("edited_message", async (ctx) => {
         const { data: analysisData, error: analysisError } = await supabase
           .from("food_analysis")
           .upsert({
-            chat_id: ctx.editedMessage.chat.id,
-            user_id: ctx.editedMessage.from.id,
-            message_id: ctx.editedMessage.message_id,
+            chat_id: chat.id,
+            user_id: edited.from.id,
+            message_id: edited.message_id,
             description: response.description,
             mass: response.mass,
             calories: response.calories,

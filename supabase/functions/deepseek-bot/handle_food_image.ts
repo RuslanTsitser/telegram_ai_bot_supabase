@@ -114,6 +114,7 @@ export async function handleFoodImage(
     });
 
     const data = await response.json();
+    console.log("data", data);
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
