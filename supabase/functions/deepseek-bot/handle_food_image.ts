@@ -135,9 +135,11 @@ export async function handleFoodImage(
     }
 
     try {
+      // Clean up the response by removing markdown code block markers
+      const cleanedContent = content.replace(/```json\n?|\n?```/g, "").trim();
       // Try to parse the response as JSON to validate it
-      const jsonResponse = JSON.parse(content);
-      return jsonResponse; // Return the original JSON string
+      const jsonResponse = JSON.parse(cleanedContent);
+      return jsonResponse;
     } catch (e) {
       console.error("Error parsing JSON:", e);
       // If parsing fails, return an error
