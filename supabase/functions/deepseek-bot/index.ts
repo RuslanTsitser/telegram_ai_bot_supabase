@@ -3,8 +3,8 @@ console.log(`Function "telegram-bot" up and running!`);
 import { Bot, webhookCallback } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleFoodImage } from "./handleFoodImage.ts";
-import { selectOptimalPhoto } from "./selectOptimalPhoto.ts";
 import { formatFoodAnalysisMessage } from "./utils/formatFoodAnalysisMessage.ts";
+import { selectOptimalPhoto } from "./utils/selectOptimalPhoto.ts";
 
 const bot = new Bot(Deno.env.get("DEEPSEEK_BOT_TOKEN") || "");
 
