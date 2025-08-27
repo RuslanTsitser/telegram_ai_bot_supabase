@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   formatFoodAnalysisMessage,
   handleFoodImage,
-} from "./handle_food_image.ts";
+} from "./handleFoodImage.ts";
 import { selectOptimalPhoto } from "./select_optimal_photo.ts";
 
 const bot = new Bot(Deno.env.get("DEEPSEEK_BOT_TOKEN") || "");
