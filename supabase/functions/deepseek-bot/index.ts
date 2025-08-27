@@ -3,6 +3,7 @@ console.log(`Function "telegram-bot" up and running!`);
 import { Bot, webhookCallback } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleFoodImage } from "./handleFoodImage.ts";
+import { upsertUser } from "./upsertUser.ts";
 import { formatFoodAnalysisMessage } from "./utils/formatFoodAnalysisMessage.ts";
 import { selectOptimalPhoto } from "./utils/selectOptimalPhoto.ts";
 
@@ -17,6 +18,9 @@ const supabase = createClient(
 bot.on("message", async (ctx) => {
   const chatType = ctx.message.chat.type;
   console.log(`${chatType} message`, ctx.message.chat.id);
+
+  // Обрабатываем пользователя при каждом сообщении
+  await upsertUser(ctx, supabase);
 
   // Handle text messages
   if (ctx.message.text) {
@@ -178,6 +182,9 @@ bot.on("message", async (ctx) => {
 bot.on("edited_message", async (ctx) => {
   const edited = ctx.editedMessage;
   if (!edited) return;
+
+  // Обрабатываем пользователя при каждом сообщении
+  await upsertUser(ctx, supabase);
 
   const message = edited.text || "";
   const chat = edited.chat;
