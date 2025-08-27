@@ -1,38 +1,5 @@
+import { FoodAnalysis } from "./interfaces/FoodAnalysis.ts";
 import { foodImagePrompt } from "./prompts/foodImagePrompt.ts";
-
-interface FoodAnalysis {
-  description: string;
-  mass: number;
-  calories: number;
-  protein: number;
-  carbs: number;
-  sugar: number;
-  fats: number;
-  saturated_fats: number;
-  fiber: number;
-  nutrition_score: number;
-  recommendation: string;
-  error?: string;
-}
-
-export function formatFoodAnalysisMessage(response: FoodAnalysis): string {
-  if (response.error) {
-    return response.error;
-  }
-
-  return `🍽 ${response.description}\n\n` +
-    `📊 Питательная ценность:\n` +
-    `• Примерный вес: ${response.mass} г\n` +
-    `• Калории: ${response.calories} ккал\n` +
-    `• Белки: ${response.protein} г\n` +
-    `• Жиры: ${response.fats} г\n` +
-    `  - Насыщенные: ${response.saturated_fats} г\n` +
-    `• Углеводы: ${response.carbs} г\n` +
-    `  - Сахар: ${response.sugar} г\n` +
-    `• Клетчатка: ${response.fiber} г\n\n` +
-    `⭐ Оценка питательности: ${response.nutrition_score}/10\n\n` +
-    `💡 Рекомендации:\n${response.recommendation}`;
-}
 
 export async function handleFoodImage(
   fileId: string | null,
