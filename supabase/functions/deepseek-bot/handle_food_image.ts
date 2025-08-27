@@ -1,4 +1,4 @@
-import { foodImagePrompt } from "./prompts/food_image.ts";
+import { foodImagePrompt } from "./prompts/foodImagePrompt.ts";
 
 interface FoodAnalysis {
   description: string;
