@@ -6,7 +6,7 @@ import {
   formatFoodAnalysisMessage,
   handleFoodImage,
 } from "./handleFoodImage.ts";
-import { selectOptimalPhoto } from "./select_optimal_photo.ts";
+import { selectOptimalPhoto } from "./selectOptimalPhoto.ts";
 
 const bot = new Bot(Deno.env.get("DEEPSEEK_BOT_TOKEN") || "");
 
