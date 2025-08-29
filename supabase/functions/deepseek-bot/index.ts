@@ -37,6 +37,7 @@ bot.on("message", async (ctx) => {
         "• Я оценю его питательную ценность";
 
       await ctx.reply(welcomeMessage);
+      return;
     }
   }
 
