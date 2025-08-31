@@ -25,3 +25,14 @@ export interface FoodAnalysisData {
   image_file_id?: string;
   user_text: string;
 }
+
+// Интерфейсы для платежной системы
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  duration_days: number;
+  is_active: boolean;
+  created_at: string;
+}
