@@ -3,6 +3,11 @@ console.log(`Function "telegram-bot" up and running!`);
 import { Bot, webhookCallback } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleFoodImage } from "./ai/handleFoodImage.ts";
+import { insertFoodAnalysis, upsertFoodAnalysis } from "./db/foodAnalysis.ts";
+import {
+  getBotMessageId,
+  insertMessageRelationship,
+} from "./db/messageRelationships.ts";
 import { upsertUser } from "./db/upsertUser.ts";
 import { formatFoodAnalysisMessage } from "./utils/formatFoodAnalysisMessage.ts";
 import { selectOptimalPhoto } from "./utils/selectOptimalPhoto.ts";
@@ -72,13 +77,11 @@ bot.on("message", async (ctx) => {
     if (sentMessage) {
       // Store message relationship
       const { data: relationshipData, error: relationshipError } =
-        await supabase
-          .from("message_relationships")
-          .insert({
-            user_message_id: ctx.message.message_id,
-            bot_message_id: sentMessage.message_id,
-            chat_id: ctx.chat.id,
-          });
+        await insertMessageRelationship(supabase, {
+          user_message_id: ctx.message.message_id,
+          bot_message_id: sentMessage.message_id,
+          chat_id: ctx.chat.id,
+        });
 
       console.log(
         "message_relationships food image",
@@ -88,9 +91,8 @@ bot.on("message", async (ctx) => {
 
       // Store food analysis data
       if (!response.error) {
-        const { data: analysisData, error: analysisError } = await supabase
-          .from("food_analysis")
-          .insert({
+        const { data: analysisData, error: analysisError } =
+          await insertFoodAnalysis(supabase, {
             chat_id: ctx.chat.id,
             user_id: ctx.from.id,
             message_id: ctx.message.message_id,
@@ -137,13 +139,11 @@ bot.on("message", async (ctx) => {
     if (sentMessage) {
       // Store message relationship
       const { data: relationshipData, error: relationshipError } =
-        await supabase
-          .from("message_relationships")
-          .insert({
-            user_message_id: ctx.message.message_id,
-            bot_message_id: sentMessage.message_id,
-            chat_id: ctx.chat.id,
-          });
+        await insertMessageRelationship(supabase, {
+          user_message_id: ctx.message.message_id,
+          bot_message_id: sentMessage.message_id,
+          chat_id: ctx.chat.id,
+        });
 
       console.log(
         "message_relationships food text",
@@ -153,9 +153,8 @@ bot.on("message", async (ctx) => {
 
       // Store food analysis data
       if (!response.error) {
-        const { data: analysisData, error: analysisError } = await supabase
-          .from("food_analysis")
-          .insert({
+        const { data: analysisData, error: analysisError } =
+          await insertFoodAnalysis(supabase, {
             chat_id: ctx.chat.id,
             user_id: ctx.from.id,
             message_id: ctx.message.message_id,
@@ -212,12 +211,11 @@ bot.on("edited_message", async (ctx) => {
 
     const messageText = formatFoodAnalysisMessage(response);
 
-    const { data } = await supabase
-      .from("message_relationships")
-      .select("bot_message_id")
-      .eq("user_message_id", edited.message_id)
-      .eq("chat_id", chat.id)
-      .single();
+    const { data } = await getBotMessageId(
+      supabase,
+      edited.message_id,
+      chat.id,
+    );
 
     if (data?.bot_message_id) {
       await ctx.api.editMessageText(
@@ -228,9 +226,8 @@ bot.on("edited_message", async (ctx) => {
 
       // Update or insert food analysis data
       if (!response.error) {
-        const { data: analysisData, error: analysisError } = await supabase
-          .from("food_analysis")
-          .upsert({
+        const { data: analysisData, error: analysisError } =
+          await upsertFoodAnalysis(supabase, {
             chat_id: chat.id,
             user_id: edited.from.id,
             message_id: edited.message_id,
@@ -248,8 +245,6 @@ bot.on("edited_message", async (ctx) => {
             image_file_id: optimalPhoto.file_id,
             user_text: caption,
             has_image: true,
-          }, {
-            onConflict: "message_id,chat_id",
           });
 
         console.log("upserted food_analysis", analysisData, analysisError);
@@ -265,12 +260,11 @@ bot.on("edited_message", async (ctx) => {
 
     const messageText = formatFoodAnalysisMessage(response);
 
-    const { data } = await supabase
-      .from("message_relationships")
-      .select("bot_message_id")
-      .eq("user_message_id", edited.message_id)
-      .eq("chat_id", chat.id)
-      .single();
+    const { data } = await getBotMessageId(
+      supabase,
+      edited.message_id,
+      chat.id,
+    );
 
     if (data?.bot_message_id) {
       await ctx.api.editMessageText(
@@ -281,9 +275,8 @@ bot.on("edited_message", async (ctx) => {
 
       // Update or insert food analysis data
       if (!response.error) {
-        const { data: analysisData, error: analysisError } = await supabase
-          .from("food_analysis")
-          .upsert({
+        const { data: analysisData, error: analysisError } =
+          await upsertFoodAnalysis(supabase, {
             chat_id: chat.id,
             user_id: edited.from.id,
             message_id: edited.message_id,
@@ -300,8 +293,6 @@ bot.on("edited_message", async (ctx) => {
             recommendation: response.recommendation,
             user_text: message,
             has_image: false,
-          }, {
-            onConflict: "message_id,chat_id",
           });
 
         console.log("upserted food_analysis", analysisData, analysisError);
