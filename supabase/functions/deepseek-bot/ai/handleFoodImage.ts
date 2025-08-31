@@ -1,5 +1,6 @@
-import { FoodAnalysis } from "./interfaces/FoodAnalysis.ts";
-import { foodImagePrompt } from "./prompts/foodImagePrompt.ts";
+import { FoodAnalysis } from "../interfaces/FoodAnalysis.ts";
+import { foodImagePrompt } from "../prompts/foodImagePrompt.ts";
+import { getImageUrlFromTelegram } from "../telegram/getImageUrlFromTelegram.ts";
 
 export async function handleFoodImage(
   fileId: string | null,
@@ -13,12 +14,9 @@ export async function handleFoodImage(
 
     if (fileId) {
       // Get file path from Telegram
-      const fileResponse = await fetch(
-        `https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`,
-      );
-      const fileData = await fileResponse.json();
+      const imageUrl = await getImageUrlFromTelegram(fileId, botToken);
 
-      if (!fileData.ok) {
+      if (imageUrl === null) {
         return {
           description: "",
           mass: 0,
@@ -34,10 +32,6 @@ export async function handleFoodImage(
           error: "Извините, не удалось получить изображение.",
         };
       }
-
-      const filePath = fileData.result.file_path;
-      const imageUrl =
-        `https://api.telegram.org/file/bot${botToken}/${filePath}`;
 
       imageContent = {
         type: "image_url",
