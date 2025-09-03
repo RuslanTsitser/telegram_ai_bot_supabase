@@ -2,20 +2,23 @@ console.log(`Function "telegram-bot" up and running!`);
 
 import { Bot, webhookCallback } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { handleFoodImage } from "./ai/handleFoodImage.ts";
-import { insertFoodAnalysis, upsertFoodAnalysis } from "./db/foodAnalysis.ts";
+import { handleFoodImage } from "./src/ai/handleFoodImage.ts";
+import {
+  insertFoodAnalysis,
+  upsertFoodAnalysis,
+} from "./src/db/foodAnalysis.ts";
 import {
   getBotMessageId,
   insertMessageRelationship,
-} from "./db/messageRelationships.ts";
-import { getSubscriptionPlans } from "./db/subscriptions.ts";
-import { upsertUser } from "./db/upsertUser.ts";
+} from "./src/db/messageRelationships.ts";
+import { getSubscriptionPlans } from "./src/db/subscriptions.ts";
+import { upsertUser } from "./src/db/upsertUser.ts";
 import {
   createSubscriptionInvoice,
   handleTrialSubscription,
-} from "./telegram/subscriptionHandlers.ts";
-import { formatFoodAnalysisMessage } from "./utils/formatFoodAnalysisMessage.ts";
-import { selectOptimalPhoto } from "./utils/selectOptimalPhoto.ts";
+} from "./src/telegram/subscriptionHandlers.ts";
+import { formatFoodAnalysisMessage } from "./src/utils/formatFoodAnalysisMessage.ts";
+import { selectOptimalPhoto } from "./src/utils/selectOptimalPhoto.ts";
 
 const bot = new Bot(Deno.env.get("DEEPSEEK_BOT_TOKEN") || "");
 
