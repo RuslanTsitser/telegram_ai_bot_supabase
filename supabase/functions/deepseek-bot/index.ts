@@ -11,6 +11,7 @@ import {
   getBotMessageId,
   insertMessageRelationship,
 } from "./src/db/messageRelationships.ts";
+import { processSuccessfulPayment } from "./src/db/processSuccessfulPayment.ts";
 import { getSubscriptionPlans } from "./src/db/subscriptions.ts";
 import { upsertUser } from "./src/db/upsertUser.ts";
 import {
@@ -39,90 +40,29 @@ bot.on("message", async (ctx) => {
   if (ctx.message.successful_payment) {
     console.log("successful_payment received");
 
-    try {
-      const payment = ctx.message.successful_payment;
-      const payload = payment.invoice_payload;
-      const [type, planId, userId] = payload.split("_");
+    const result = await processSuccessfulPayment(
+      ctx.message.successful_payment,
+      supabase,
+    );
 
-      if (type !== "subscription") {
-        console.error("Invalid payment type:", type);
-        return;
-      }
-
-      // Получаем информацию о тарифе
-      const { data: plan, error: planError } = await supabase
-        .from("subscription_plans")
-        .select("*")
-        .eq("id", planId)
-        .single();
-
-      if (planError || !plan) {
-        console.error("Plan not found:", planId);
-        return;
-      }
-
-      // Получаем пользователя по telegram_user_id
-      const { data: user, error: userError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("telegram_user_id", parseInt(userId))
-        .single();
-
-      if (userError || !user) {
-        console.error("User not found:", userId);
-        return;
-      }
-
-      // Вычисляем дату окончания подписки
-      const subscriptionEndDate = new Date();
-      subscriptionEndDate.setDate(
-        subscriptionEndDate.getDate() + plan.duration_days,
-      );
-
-      // Обновляем пользователя
-      const { error: updateError } = await supabase
-        .from("users")
-        .update({
-          premium_expires_at: subscriptionEndDate.toISOString(),
-        })
-        .eq("id", user.id);
-
-      if (updateError) {
-        console.error("Error updating user:", updateError);
-        return;
-      }
-
-      // Создаем запись о платеже
-      const { error: paymentError } = await supabase
-        .from("payments")
-        .insert({
-          user_id: user.id, // используем uuid из users
-          plan_id: planId,
-          yookassa_payment_id: payment.telegram_payment_charge_id,
-          amount: payment.total_amount / 100, // конвертируем из копеек
-          currency: payment.currency,
-          status: "succeeded",
-        });
-
-      if (paymentError) {
-        console.error("Error creating payment record:", paymentError);
-      }
-
+    if (result.success) {
       // Отправляем сообщение об успешной активации
       await ctx.reply(
-        `🎉 Подписка "${plan.name}" успешно активирована!\n\n` +
+        `🎉 Подписка "${result.planName}" успешно активирована!\n\n` +
           `Доступен до: ${
-            subscriptionEndDate.toLocaleDateString("ru-RU")
+            result.subscriptionEndDate!.toLocaleDateString("ru-RU")
           }\n\n` +
           `Теперь у вас есть полный доступ ко всем функциям!`,
       );
 
+      const payload = ctx.message.successful_payment.invoice_payload;
+      const [, planId, userId] = payload.split("_");
       console.log("Subscription activated for user:", userId, "plan:", planId);
-      return;
-    } catch (error) {
-      console.error("Error in successful_payment:", error);
-      return;
+    } else {
+      console.error("Error processing payment:", result.error);
+      await ctx.reply("❌ Произошла ошибка при обработке платежа");
     }
+    return;
   }
 
   // Handle text messages
