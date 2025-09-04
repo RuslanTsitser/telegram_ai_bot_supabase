@@ -14,6 +14,7 @@ import {
 import { processSuccessfulPayment } from "./src/db/processSuccessfulPayment.ts";
 import { getSubscriptionPlans } from "./src/db/subscriptions.ts";
 import { upsertUser } from "./src/db/upsertUser.ts";
+import { checkUserLimits } from "./src/db/userLimits.ts";
 import {
   createSubscriptionInvoice,
   handleTrialSubscription,
@@ -71,15 +72,31 @@ bot.on("message", async (ctx) => {
 
     if (message === "/start" && chatType === "private") {
       console.log("start message");
-      const welcomeMessage = "👋 Привет! Я бот для анализа питания.\n\n" +
+
+      // Проверяем статус пользователя для персонализированного сообщения
+      const userLimits = await checkUserLimits(ctx.from.id, supabase);
+
+      let welcomeMessage = "👋 Привет! Я бот для анализа питания.\n\n" +
         "📝 Вот что я умею:\n\n" +
-        "🍽 Анализ рациона:\n" +
-        "• Я проанализирую питательную ценность и дам рекомендации\n\n" +
-        "📸 Анализ фото еды:\n" +
-        "• Отправьте фото блюда\n" +
-        "• Я оценю его питательную ценность\n\n" +
-        "💳 Подписки:\n" +
-        "• /subscriptions - посмотреть доступные тарифы";
+        "🍽 Анализ рациона по тексту:\n" +
+        "• Опишите блюдо текстом\n" +
+        "• Я проанализирую питательную ценность и дам рекомендации\n\n";
+
+      if (userLimits.isPremium) {
+        welcomeMessage += "📸 Анализ фото еды:\n" +
+          "• Отправьте фото блюда\n" +
+          "• Я оценю его питательную ценность\n\n" +
+          "✅ У вас премиум доступ - без ограничений!\n\n";
+      } else {
+        welcomeMessage += "📊 Лимиты для бесплатных пользователей:\n" +
+          "• Текстовый анализ: 5 раз в день\n" +
+          "• Анализ изображений: только для премиум\n\n" +
+          `📈 Осталось анализов сегодня: ${userLimits.dailyTextAnalysesLeft}\n\n`;
+      }
+
+      welcomeMessage += "💳 Команды:\n" +
+        "• /subscriptions - посмотреть доступные тарифы\n" +
+        "• /limits - проверить текущие лимиты";
 
       await ctx.reply(welcomeMessage);
       return;
@@ -121,10 +138,53 @@ bot.on("message", async (ctx) => {
       await ctx.reply(subscriptionMessage, { reply_markup: keyboard });
       return;
     }
+
+    if (message === "/limits" && chatType === "private") {
+      console.log("limits command");
+
+      const userLimits = await checkUserLimits(ctx.from.id, supabase);
+
+      let limitsMessage = "📊 Ваши текущие лимиты:\n\n";
+
+      if (userLimits.isPremium) {
+        limitsMessage += "✅ Премиум статус активен\n" +
+          "🎉 Безлимитный доступ ко всем функциям:\n" +
+          "• Анализ по тексту: без ограничений\n" +
+          "• Анализ по изображениям: без ограничений\n\n";
+      } else {
+        limitsMessage += "🆓 Бесплатный аккаунт\n" +
+          "📝 Доступные функции:\n" +
+          "• Анализ по тексту: " + (userLimits.dailyTextAnalysesLeft > 0
+            ? `${userLimits.dailyTextAnalysesLeft} из 5 в день`
+            : "лимит исчерпан") +
+          "\n" +
+          "• Анализ по изображениям: только для премиум\n\n" +
+          "💎 Оформите подписку командой /subscriptions для получения полного доступа";
+      }
+
+      await ctx.reply(limitsMessage);
+      return;
+    }
   }
 
   // Handle photo messages
   if (ctx.message.photo) {
+    // Проверяем лимиты пользователя
+    const userLimits = await checkUserLimits(ctx.from.id, supabase);
+
+    if (!userLimits.canAnalyzeImage) {
+      if (!userLimits.isPremium) {
+        await ctx.reply(
+          "🚫 Анализ изображений доступен только премиум пользователям!\n\n" +
+            "💎 Оформите подписку командой /subscriptions для получения полного доступа ко всем функциям.",
+        );
+        return;
+      } else {
+        await ctx.reply("❌ Произошла ошибка при проверке доступа");
+        return;
+      }
+    }
+
     const caption = ctx.message.caption || "";
     // Выбираем PhotoSize с разрешением близким к 320×320
     const photoSizes = ctx.message.photo.map((p) => ({
@@ -195,7 +255,24 @@ bot.on("message", async (ctx) => {
   }
 
   // Handle text messages for food analysis (без фотографии)
-  if (ctx.message.text) {
+  if (ctx.message.text && !ctx.message.text.startsWith("/")) {
+    // Проверяем лимиты пользователя
+    const userLimits = await checkUserLimits(ctx.from.id, supabase);
+
+    if (!userLimits.canAnalyzeText) {
+      if (!userLimits.isPremium) {
+        await ctx.reply(
+          `🚫 Достигнут дневной лимит анализов!\n\n` +
+            `📊 Осталось анализов сегодня: ${userLimits.dailyTextAnalysesLeft}\n\n` +
+            `💎 Оформите подписку командой /subscriptions для получения безлимитного доступа.`,
+        );
+        return;
+      } else {
+        await ctx.reply("❌ Произошла ошибка при проверке доступа");
+        return;
+      }
+    }
+
     console.log("received food text for analysis", chatType);
     const response = await handleFoodImage(
       null,
@@ -208,6 +285,14 @@ bot.on("message", async (ctx) => {
     let sentMessage;
     if (chatType === "private") {
       sentMessage = await ctx.reply(messageText);
+
+      // Добавляем информацию о лимитах для бесплатных пользователей
+      if (!userLimits.isPremium && userLimits.dailyTextAnalysesLeft > 0) {
+        await ctx.reply(
+          `📊 Осталось анализов сегодня: ${userLimits.dailyTextAnalysesLeft}\n\n` +
+            `💎 Оформите подписку командой /subscriptions для безлимитного доступа!`,
+        );
+      }
     }
 
     console.log("sentMessage food text", sentMessage);
