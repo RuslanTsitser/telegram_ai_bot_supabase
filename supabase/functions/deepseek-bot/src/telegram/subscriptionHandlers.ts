@@ -1,6 +1,7 @@
 import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SubscriptionPlan } from "../interfaces/Database.ts";
+import { formatWithDeclension } from "../utils/declension.ts";
 
 // Обработка пробного периода
 export async function handleTrialSubscription(
@@ -66,7 +67,10 @@ export async function createSubscriptionInvoice(
     await ctx.api.sendInvoice(
       ctx.chat?.id!,
       `Подписка: ${plan.name}`,
-      plan.description || `Подписка на ${plan.duration_days} дней`,
+      plan.description ||
+        `Подписка на ${
+          formatWithDeclension(plan.duration_days, ["день", "дня", "дней"])
+        }`,
       `subscription_${plan.id}_${userId}`,
       Deno.env.get("YOOKASSA_PROVIDER_TOKEN") || "",
       "RUB",

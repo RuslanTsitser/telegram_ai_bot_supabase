@@ -19,6 +19,7 @@ import {
   createSubscriptionInvoice,
   handleTrialSubscription,
 } from "./src/telegram/subscriptionHandlers.ts";
+import { formatWithDeclension } from "./src/utils/declension.ts";
 import { formatFoodAnalysisMessage } from "./src/utils/formatFoodAnalysisMessage.ts";
 import { selectOptimalPhoto } from "./src/utils/selectOptimalPhoto.ts";
 
@@ -117,8 +118,9 @@ bot.on("message", async (ctx) => {
 
       plans?.forEach((plan) => {
         const emoji = plan.price === 0 ? "🆓" : "💳";
-        subscriptionMessage +=
-          `${emoji} ${plan.name} (${plan.duration_days} дней) - ${plan.price}₽\n`;
+        subscriptionMessage += `${emoji} ${plan.name} (${
+          formatWithDeclension(plan.duration_days, ["день", "дня", "дней"])
+        }) - ${plan.price}₽\n`;
         if (plan.description) {
           subscriptionMessage += `   ${plan.description}\n`;
         }
