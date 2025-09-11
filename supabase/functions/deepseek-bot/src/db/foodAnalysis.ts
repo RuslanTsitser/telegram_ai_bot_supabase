@@ -4,25 +4,35 @@ import { FoodAnalysisData } from "../interfaces/Database.ts";
 export async function insertFoodAnalysis(
   supabase: SupabaseClient,
   analysisData: FoodAnalysisData,
-) {
+): Promise<FoodAnalysisData | null> {
   const { data, error } = await supabase
     .from("food_analysis")
     .insert(analysisData);
 
-  return { data, error };
+  if (error) {
+    console.error("Error inserting food analysis:", error);
+    return null;
+  }
+
+  return data;
 }
 
 export async function upsertFoodAnalysis(
   supabase: SupabaseClient,
   analysisData: FoodAnalysisData,
-) {
+): Promise<FoodAnalysisData | null> {
   const { data, error } = await supabase
     .from("food_analysis")
     .upsert(analysisData, {
       onConflict: "message_id,chat_id",
     });
 
-  return { data, error };
+  if (error) {
+    console.error("Error upserting food analysis:", error);
+    return null;
+  }
+
+  return data;
 }
 
 export async function getDailyAnalysisCount(

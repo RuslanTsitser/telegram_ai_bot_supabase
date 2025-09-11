@@ -12,9 +12,16 @@ import {
   insertMessageRelationship,
 } from "./src/db/messageRelationships.ts";
 import { processSuccessfulPayment } from "./src/db/processSuccessfulPayment.ts";
-import { getSubscriptionPlans } from "./src/db/subscriptions.ts";
-import { upsertUser } from "./src/db/upsertUser.ts";
+import {
+  getSubscriptionPlanById,
+  getSubscriptionPlans,
+} from "./src/db/subscriptions.ts";
+import { getUserByTelegramId, upsertUser } from "./src/db/upsertUser.ts";
 import { checkUserLimits } from "./src/db/userLimits.ts";
+import {
+  FoodAnalysisData,
+  MessageRelationship,
+} from "./src/interfaces/Database.ts";
 import {
   createSubscriptionInvoice,
   handleTrialSubscription,
@@ -106,10 +113,9 @@ bot.on("message", async (ctx) => {
     if (message === "/subscriptions" && chatType === "private") {
       console.log("subscriptions command");
 
-      const { data: plans, error } = await getSubscriptionPlans(supabase);
+      const plans = await getSubscriptionPlans(supabase);
 
-      if (error) {
-        console.error("Error getting subscription plans:", error);
+      if (!plans) {
         await ctx.reply("❌ Ошибка при получении тарифов");
         return;
       }
@@ -215,43 +221,47 @@ bot.on("message", async (ctx) => {
     // Store the relationship in Supabase
     if (sentMessage) {
       // Store message relationship
-      const { data: relationshipData, error: relationshipError } =
-        await insertMessageRelationship(supabase, {
-          user_message_id: ctx.message.message_id,
-          bot_message_id: sentMessage.message_id,
-          chat_id: ctx.chat.id,
-        });
+      const relationship: MessageRelationship = {
+        user_message_id: ctx.message.message_id,
+        bot_message_id: sentMessage.message_id,
+        chat_id: ctx.chat.id,
+      };
+      const { data, error } = await insertMessageRelationship(
+        supabase,
+        relationship,
+      );
 
       console.log(
         "message_relationships food image",
-        relationshipData,
-        relationshipError,
+        data,
+        error,
       );
 
       // Store food analysis data
       if (!response.error) {
-        const { data: analysisData, error: analysisError } =
-          await insertFoodAnalysis(supabase, {
-            chat_id: ctx.chat.id,
-            user_id: ctx.from.id,
-            message_id: ctx.message.message_id,
-            description: response.description,
-            mass: response.mass,
-            calories: response.calories,
-            protein: response.protein,
-            carbs: response.carbs,
-            sugar: response.sugar,
-            fats: response.fats,
-            saturated_fats: response.saturated_fats,
-            fiber: response.fiber,
-            nutrition_score: response.nutrition_score,
-            recommendation: response.recommendation,
-            has_image: true,
-            image_file_id: optimalPhoto.file_id,
-            user_text: caption,
-          });
-
-        console.log("food_analysis", analysisData, analysisError);
+        const foodAnalysisData: FoodAnalysisData = {
+          chat_id: ctx.chat.id,
+          user_id: ctx.from.id,
+          message_id: ctx.message.message_id,
+          description: response.description,
+          mass: response.mass,
+          calories: response.calories,
+          protein: response.protein,
+          carbs: response.carbs,
+          sugar: response.sugar,
+          fats: response.fats,
+          saturated_fats: response.saturated_fats,
+          fiber: response.fiber,
+          nutrition_score: response.nutrition_score,
+          recommendation: response.recommendation,
+          has_image: true,
+          image_file_id: optimalPhoto.file_id,
+          user_text: caption,
+        };
+        await insertFoodAnalysis(
+          supabase,
+          foodAnalysisData,
+        );
       }
     }
   }
@@ -302,42 +312,46 @@ bot.on("message", async (ctx) => {
     // Store the relationship in Supabase
     if (sentMessage) {
       // Store message relationship
-      const { data: relationshipData, error: relationshipError } =
-        await insertMessageRelationship(supabase, {
-          user_message_id: ctx.message.message_id,
-          bot_message_id: sentMessage.message_id,
-          chat_id: ctx.chat.id,
-        });
+      const relationship: MessageRelationship = {
+        user_message_id: ctx.message.message_id,
+        bot_message_id: sentMessage.message_id,
+        chat_id: ctx.chat.id,
+      };
+      const { data, error } = await insertMessageRelationship(
+        supabase,
+        relationship,
+      );
 
       console.log(
         "message_relationships food text",
-        relationshipData,
-        relationshipError,
+        data,
+        error,
       );
 
       // Store food analysis data
       if (!response.error) {
-        const { data: analysisData, error: analysisError } =
-          await insertFoodAnalysis(supabase, {
-            chat_id: ctx.chat.id,
-            user_id: ctx.from.id,
-            message_id: ctx.message.message_id,
-            description: response.description,
-            mass: response.mass,
-            calories: response.calories,
-            protein: response.protein,
-            carbs: response.carbs,
-            sugar: response.sugar,
-            fats: response.fats,
-            saturated_fats: response.saturated_fats,
-            fiber: response.fiber,
-            nutrition_score: response.nutrition_score,
-            recommendation: response.recommendation,
-            has_image: false,
-            user_text: ctx.message.text,
-          });
-
-        console.log("food_analysis", analysisData, analysisError);
+        const foodAnalysisData: FoodAnalysisData = {
+          chat_id: ctx.chat.id,
+          user_id: ctx.from.id,
+          message_id: ctx.message.message_id,
+          description: response.description,
+          mass: response.mass,
+          calories: response.calories,
+          protein: response.protein,
+          carbs: response.carbs,
+          sugar: response.sugar,
+          fats: response.fats,
+          saturated_fats: response.saturated_fats,
+          fiber: response.fiber,
+          nutrition_score: response.nutrition_score,
+          recommendation: response.recommendation,
+          has_image: false,
+          user_text: ctx.message.text,
+        };
+        await insertFoodAnalysis(
+          supabase,
+          foodAnalysisData,
+        );
       }
     }
   }
@@ -385,26 +399,17 @@ bot.on("pre_checkout_query", async (ctx) => {
     }
 
     // Проверяем, что план существует и активен
-    const { data: plan, error } = await supabase
-      .from("subscription_plans")
-      .select("*")
-      .eq("id", planId)
-      .eq("is_active", true)
-      .single();
+    const plan = await getSubscriptionPlanById(supabase, planId);
 
-    if (error || !plan) {
+    if (!plan) {
       await ctx.answerPreCheckoutQuery(false, "Тариф не найден или неактивен");
       return;
     }
 
     // Проверяем, что пользователь существует
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("telegram_user_id", parseInt(userId))
-      .single();
+    const user = await getUserByTelegramId(supabase, parseInt(userId));
 
-    if (userError || !user) {
+    if (!user) {
       await ctx.answerPreCheckoutQuery(false, "Пользователь не найден");
       return;
     }
@@ -425,11 +430,6 @@ bot.on("edited_message", async (ctx) => {
   // Обрабатываем пользователя при каждом сообщении
   await upsertUser(ctx, supabase);
 
-  const message = edited.text || "";
-  const chat = edited.chat;
-  const chatType = chat.type;
-  console.log("edited message", chat.id, chatType);
-
   // Handle edited photo caption
   if (edited.photo) {
     const caption = edited.caption || "";
@@ -441,7 +441,6 @@ bot.on("edited_message", async (ctx) => {
     }));
     const optimalPhoto = selectOptimalPhoto(photoSizes);
 
-    console.log(`edited food photo caption in ${chatType}`);
     const response = await handleFoodImage(
       optimalPhoto.file_id,
       caption,
@@ -453,47 +452,45 @@ bot.on("edited_message", async (ctx) => {
     const { data } = await getBotMessageId(
       supabase,
       edited.message_id,
-      chat.id,
+      edited.chat.id,
     );
 
     if (data?.bot_message_id) {
       await ctx.api.editMessageText(
-        chat.id,
+        edited.chat.id,
         data.bot_message_id,
         messageText,
       );
 
       // Update or insert food analysis data
       if (!response.error) {
-        const { data: analysisData, error: analysisError } =
-          await upsertFoodAnalysis(supabase, {
-            chat_id: chat.id,
-            user_id: edited.from.id,
-            message_id: edited.message_id,
-            description: response.description,
-            mass: response.mass,
-            calories: response.calories,
-            protein: response.protein,
-            carbs: response.carbs,
-            sugar: response.sugar,
-            fats: response.fats,
-            saturated_fats: response.saturated_fats,
-            fiber: response.fiber,
-            nutrition_score: response.nutrition_score,
-            recommendation: response.recommendation,
-            image_file_id: optimalPhoto.file_id,
-            user_text: caption,
-            has_image: true,
-          });
+        const foodAnalysisData: FoodAnalysisData = {
+          chat_id: edited.chat.id,
+          user_id: edited.from.id,
+          message_id: edited.message_id,
+          description: response.description,
+          mass: response.mass,
+          calories: response.calories,
+          protein: response.protein,
+          carbs: response.carbs,
+          sugar: response.sugar,
+          fats: response.fats,
+          saturated_fats: response.saturated_fats,
+          fiber: response.fiber,
+          nutrition_score: response.nutrition_score,
+          recommendation: response.recommendation,
+          image_file_id: optimalPhoto.file_id,
+          user_text: caption,
+          has_image: true,
+        };
 
-        console.log("upserted food_analysis", analysisData, analysisError);
+        await upsertFoodAnalysis(supabase, foodAnalysisData);
       }
     }
   } else {
-    console.log(`edited food analysis message in ${chatType}`);
     const response = await handleFoodImage(
       null,
-      message,
+      edited.text || "",
       Deno.env.get("DEEPSEEK_BOT_TOKEN") || "",
     );
 
@@ -502,39 +499,40 @@ bot.on("edited_message", async (ctx) => {
     const { data } = await getBotMessageId(
       supabase,
       edited.message_id,
-      chat.id,
+      edited.chat.id,
     );
 
     if (data?.bot_message_id) {
       await ctx.api.editMessageText(
-        chat.id,
+        edited.chat.id,
         data.bot_message_id,
         messageText,
       );
 
       // Update or insert food analysis data
       if (!response.error) {
-        const { data: analysisData, error: analysisError } =
-          await upsertFoodAnalysis(supabase, {
-            chat_id: chat.id,
-            user_id: edited.from.id,
-            message_id: edited.message_id,
-            description: response.description,
-            mass: response.mass,
-            calories: response.calories,
-            protein: response.protein,
-            carbs: response.carbs,
-            sugar: response.sugar,
-            fats: response.fats,
-            saturated_fats: response.saturated_fats,
-            fiber: response.fiber,
-            nutrition_score: response.nutrition_score,
-            recommendation: response.recommendation,
-            user_text: message,
-            has_image: false,
-          });
-
-        console.log("upserted food_analysis", analysisData, analysisError);
+        const foodAnalysisData: FoodAnalysisData = {
+          chat_id: edited.chat.id,
+          user_id: edited.from.id,
+          message_id: edited.message_id,
+          description: response.description,
+          mass: response.mass,
+          calories: response.calories,
+          protein: response.protein,
+          carbs: response.carbs,
+          sugar: response.sugar,
+          fats: response.fats,
+          saturated_fats: response.saturated_fats,
+          fiber: response.fiber,
+          nutrition_score: response.nutrition_score,
+          recommendation: response.recommendation,
+          user_text: edited.text || "",
+          has_image: false,
+        };
+        await upsertFoodAnalysis(
+          supabase,
+          foodAnalysisData,
+        );
       }
     }
   }

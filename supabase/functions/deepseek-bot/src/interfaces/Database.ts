@@ -36,3 +36,17 @@ export interface SubscriptionPlan {
   is_active: boolean;
   created_at: string;
 }
+
+export interface DbUser {
+  id: string;
+  telegram_user_id: number;
+  username: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  is_premium: boolean;
+  premium_expires_at: string | null;
+  created_at: string;
+  last_activity: string;
+  trial_used: boolean;
+  price_test_group: string;
+}
