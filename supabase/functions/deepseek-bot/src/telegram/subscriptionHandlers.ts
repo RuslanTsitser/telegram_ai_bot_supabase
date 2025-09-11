@@ -58,6 +58,7 @@ export async function handleTrialSubscription(
 export async function createSubscriptionInvoice(
   ctx: Context,
   plan: SubscriptionPlan,
+  test: boolean,
 ) {
   const userId = ctx.from?.id;
   if (!userId) return;
@@ -72,7 +73,9 @@ export async function createSubscriptionInvoice(
           formatWithDeclension(plan.duration_days, ["день", "дня", "дней"])
         }`,
       `subscription_${plan.id}_${userId}`,
-      Deno.env.get("YOOKASSA_PROVIDER_TOKEN") || "",
+      test
+        ? Deno.env.get("YOOKASSA_PROVIDER_TOKEN_TEST") || ""
+        : Deno.env.get("YOOKASSA_PROVIDER_TOKEN") || "",
       "RUB",
       [{
         label: plan.name,

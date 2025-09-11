@@ -146,6 +146,42 @@ bot.on("message", async (ctx) => {
       await ctx.reply(subscriptionMessage, { reply_markup: keyboard });
       return;
     }
+    if (message === "/subscriptions_test" && chatType === "private") {
+      console.log("subscriptions command");
+
+      const plans = await getSubscriptionPlans(supabase);
+
+      if (!plans) {
+        await ctx.reply("❌ Ошибка при получении тарифов");
+        return;
+      }
+
+      let subscriptionMessage = "💳 Доступные тарифы:\n\n";
+
+      plans?.forEach((plan) => {
+        const emoji = plan.price === 0 ? "🆓" : "💳";
+        subscriptionMessage += `${emoji} ${plan.name} (${
+          formatWithDeclension(plan.duration_days, ["день", "дня", "дней"])
+        }) - ${plan.price}₽\n`;
+        if (plan.description) {
+          subscriptionMessage += `   ${plan.description}\n`;
+        }
+        subscriptionMessage += "\n";
+      });
+
+      // Создаем inline кнопки для каждого тарифа
+      const keyboard = {
+        inline_keyboard: plans?.map((plan) => [{
+          text: plan.price === 0
+            ? `🆓 Активировать ${plan.name}`
+            : `💳 Купить ${plan.name}`,
+          callback_data: `subscription_test_${plan.id}`,
+        }]) || [],
+      };
+
+      await ctx.reply(subscriptionMessage, { reply_markup: keyboard });
+      return;
+    }
 
     if (message === "/limits" && chatType === "private") {
       console.log("limits command");
@@ -359,8 +395,17 @@ bot.on("message", async (ctx) => {
 
 // Обработчик для inline кнопок подписок
 bot.on("callback_query", async (ctx) => {
-  if (ctx.callbackQuery.data?.startsWith("subscription_")) {
-    const planId = ctx.callbackQuery.data.replace("subscription_", "");
+  if (
+    ctx.callbackQuery.data?.startsWith("subscription_") ||
+    ctx.callbackQuery.data?.startsWith("subscription_test_")
+  ) {
+    let planId: string;
+
+    if (ctx.callbackQuery.data.startsWith("subscription_test_")) {
+      planId = ctx.callbackQuery.data.replace("subscription_test_", "");
+    } else {
+      planId = ctx.callbackQuery.data.replace("subscription_", "");
+    }
 
     // Получаем информацию о тарифе
     const { data: plan, error } = await supabase
@@ -378,8 +423,11 @@ bot.on("callback_query", async (ctx) => {
       // Логика для пробного периода
       await handleTrialSubscription(ctx, plan, supabase);
     } else {
-      // Создаем invoice для платного тарифа
-      await createSubscriptionInvoice(ctx, plan);
+      if (ctx.callbackQuery.data.startsWith("subscription_test_")) {
+        await createSubscriptionInvoice(ctx, plan, true);
+      } else {
+        await createSubscriptionInvoice(ctx, plan, false);
+      }
     }
   }
 });
