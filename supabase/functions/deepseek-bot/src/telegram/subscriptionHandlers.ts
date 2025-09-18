@@ -1,5 +1,6 @@
 import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { BotConfig } from "../config/botConfig.ts";
 import { SubscriptionPlan } from "../interfaces/Database.ts";
 import { formatWithDeclension } from "../utils/declension.ts";
 
@@ -59,6 +60,7 @@ export async function createSubscriptionInvoice(
   ctx: Context,
   plan: SubscriptionPlan,
   test: boolean,
+  botConfig: BotConfig,
 ) {
   const userId = ctx.from?.id;
   if (!userId) return;
@@ -74,8 +76,8 @@ export async function createSubscriptionInvoice(
         }`,
       `subscription_${plan.id}_${userId}`,
       test
-        ? Deno.env.get("YOOKASSA_PROVIDER_TOKEN_TEST") || ""
-        : Deno.env.get("YOOKASSA_PROVIDER_TOKEN") || "",
+        ? botConfig.youKassaProviderTestToken
+        : botConfig.youKassaProviderToken,
       "RUB",
       [{
         label: plan.name,

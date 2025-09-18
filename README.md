@@ -16,6 +16,8 @@ telegram_bot_supabase/
                 |--- set_env.sh            # Настройка переменных окружения
             |--- src/               # Скрипты
                 |--- ai/                   # AI обработчики
+                |--- bot/                  # Обработчики ботов
+                |--- config/               # Конфигурация ботов
                 |--- db/                   # БД обработчики
                 |--- interfaces/           # Интерфейсы
                 |--- prompts/              # Промпты
@@ -33,7 +35,8 @@ telegram_bot_supabase/
 DEEPSEEK_BOT_TOKEN=your_telegram_bot_token
 DEEPSEEK_BOT_FUNCTION_SECRET=your_function_secret
 PIAPI_KEY=your_piapi_key
-YOOKASSA_PROVIDER_TOKEN=your_yookassa_provider_token
+DEEPSEEK_YOOKASSA_PROVIDER_TOKEN=your_yookassa_provider_token
+DEEPSEEK_YOOKASSA_PROVIDER_TOKEN_TEST=your_yookassa_provider_token_test
 ```
 
 ## Бизнес правила
