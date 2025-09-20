@@ -14,6 +14,12 @@ import {
 } from "../db/subscriptions.ts";
 import { getUserByTelegramId, upsertUser } from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
+import { getUserProfile, upsertUserProfile } from "../db/userProfile.ts";
+import {
+  deleteUserSession,
+  getUserSession,
+  upsertUserSession,
+} from "../db/userSessions.ts";
 import {
   FoodAnalysisData,
   MessageRelationship,
@@ -36,6 +42,132 @@ export function setupBotHandlers(
 
     // Обрабатываем пользователя при каждом сообщении
     await upsertUser(ctx, supabase);
+
+    const userSession = await getUserSession(supabase, ctx.from.id);
+
+    if (userSession) {
+      if (ctx.message.text === "/cancel") {
+        await deleteUserSession(supabase, ctx.from.id);
+        return;
+      }
+      const userProfile = await getUserProfile(supabase, ctx.from.id);
+      if (!userProfile) {
+        await upsertUserProfile(supabase, ctx.from.id, {
+          height_cm: 178,
+          weight_kg: 80,
+          target_weight_kg: 78,
+          gender: 0,
+          birth_year: 1996,
+          activity_level: 1,
+        });
+      }
+      if (userSession.current_state === "waiting_for_height") {
+        if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
+          await upsertUserProfile(
+            supabase,
+            ctx.from.id,
+            { height_cm: Number(ctx.message.text) },
+          );
+          await upsertUserSession(
+            supabase,
+            ctx.from.id,
+            "waiting_for_weight",
+          );
+          await ctx.reply("Теперь введите ваш вес в килограммах");
+        } else {
+          await ctx.reply(
+            "Пожалуйста, введите ваш рост в сантиметрах или введите /cancel для отмены",
+          );
+        }
+      } else if (userSession.current_state === "waiting_for_weight") {
+        if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
+          await upsertUserProfile(supabase, ctx.from.id, {
+            weight_kg: Number(ctx.message.text),
+          });
+          await upsertUserSession(
+            supabase,
+            ctx.from.id,
+            "waiting_for_target_weight",
+          );
+          await ctx.reply("Теперь введите вашу цель в килограммах");
+        } else {
+          await ctx.reply(
+            "Пожалуйста, введите ваш вес в килограммах или введите /cancel для отмены",
+          );
+        }
+      } else if (userSession.current_state === "waiting_for_target_weight") {
+        if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
+          await upsertUserProfile(supabase, ctx.from.id, {
+            target_weight_kg: Number(ctx.message.text),
+          });
+          await upsertUserSession(supabase, ctx.from.id, "waiting_for_gender");
+          await ctx.reply("Теперь укажите ваш пол (М или Ж)");
+        } else {
+          await ctx.reply(
+            "Пожалуйста, введите вашу цель в килограммах или введите /cancel для отмены",
+          );
+        }
+      } else if (userSession.current_state === "waiting_for_gender") {
+        if (ctx.message.text === "М" || ctx.message.text === "Ж") {
+          await upsertUserProfile(supabase, ctx.from.id, {
+            gender: ctx.message.text === "М" ? 0 : 1,
+          });
+          await upsertUserSession(supabase, ctx.from.id, "waiting_for_age");
+          await ctx.reply("Теперь укажите ваш год рождения (например, 1996)");
+        } else {
+          await ctx.reply(
+            "Пожалуйста, укажите ваш пол (М или Ж) или введите /cancel для отмены",
+          );
+        }
+      } else if (userSession.current_state === "waiting_for_age") {
+        if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
+          await upsertUserProfile(supabase, ctx.from.id, {
+            birth_year: Number(ctx.message.text),
+          });
+          await upsertUserSession(
+            supabase,
+            ctx.from.id,
+            "waiting_for_activity_level",
+          );
+          await ctx.reply(`Теперь укажите ваш уровень активности
+0 - Низкая активность, сидячий образ жизни
+1 - Легкая активность, прогулки, 1-3 тренировки в неделю
+2 - Средняя активность, 3-5 тренировок в неделю
+3 - Высокая активность, ежедневные тренировки
+4 - Очень высокая активность, интенсивные ежедневные тренировки`);
+        } else {
+          await ctx.reply(
+            "Пожалуйста, укажите ваш год рождения (например, 1996) или введите /cancel для отмены",
+          );
+        }
+      } else if (userSession.current_state === "waiting_for_activity_level") {
+        if (
+          ctx.message.text && !isNaN(Number(ctx.message.text)) &&
+          Number(ctx.message.text) >= 0 && Number(ctx.message.text) <= 4
+        ) {
+          await upsertUserProfile(supabase, ctx.from.id, {
+            activity_level: Number(ctx.message.text),
+          });
+          await deleteUserSession(supabase, ctx.from.id);
+          await ctx.reply(`Профиль успешно сохранен
+Рост: ${userProfile?.height_cm} см
+Вес: ${userProfile?.weight_kg} кг
+Целевой вес: ${userProfile?.target_weight_kg} кг
+Пол: ${userProfile?.gender === 0 ? "Мужской" : "Женский"}
+Год рождения: ${userProfile?.birth_year}
+Уровень активности: ${userProfile?.activity_level}
+
+Вы можете изменить его с помощью команды /set_profile
+
+Или в настройках профиля (кнопка Stats), вкладка "Профиль"`);
+        } else {
+          await ctx.reply(
+            "Пожалуйста, укажите ваш уровень активности (0-4) или введите /cancel для отмены",
+          );
+        }
+      }
+      return;
+    }
 
     // Handle successful payment
     if (ctx.message.successful_payment) {
@@ -104,6 +236,15 @@ export function setupBotHandlers(
           "• /limits - проверить текущие лимиты";
 
         await ctx.reply(welcomeMessage);
+        return;
+      }
+
+      if (message === "/set_profile" && chatType === "private") {
+        console.log("set_profile command");
+        await ctx.reply(
+          "Введите ваш рост в сантиметрах или введите /cancel для отмены",
+        );
+        await upsertUserSession(supabase, ctx.from.id, "waiting_for_height");
         return;
       }
 

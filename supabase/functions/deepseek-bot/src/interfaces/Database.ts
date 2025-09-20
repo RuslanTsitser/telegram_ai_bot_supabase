@@ -50,3 +50,16 @@ export interface DbUser {
   trial_used: boolean;
   price_test_group: string;
 }
+
+export interface UserProfile {
+  id: string;
+  telegram_user_id: number;
+  height_cm: number | null;
+  weight_kg: number | null;
+  target_weight_kg: number | null;
+  gender: number | null;
+  birth_year: number | null;
+  activity_level: number | null;
+  created_at: string;
+  updated_at: string;
+}
