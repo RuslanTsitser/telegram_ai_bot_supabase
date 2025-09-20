@@ -14,7 +14,11 @@ import {
 } from "../db/subscriptions.ts";
 import { getUserByTelegramId, upsertUser } from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
-import { getUserProfile, upsertUserProfile } from "../db/userProfile.ts";
+import {
+  getUserCalculations,
+  getUserProfile,
+  upsertUserProfile,
+} from "../db/userProfile.ts";
 import {
   deleteUserSession,
   getUserSession,
@@ -149,6 +153,7 @@ export function setupBotHandlers(
             activity_level: Number(ctx.message.text),
           });
           await deleteUserSession(supabase, ctx.from.id);
+          const calculations = await getUserCalculations(supabase, ctx.from.id);
           await ctx.reply(`Профиль успешно сохранен
 Рост: ${userProfile?.height_cm} см
 Вес: ${userProfile?.weight_kg} кг
@@ -157,8 +162,13 @@ export function setupBotHandlers(
 Год рождения: ${userProfile?.birth_year}
 Уровень активности: ${userProfile?.activity_level}
 
-Вы можете изменить его с помощью команды /set_profile
+Индекс массы тела: ${calculations?.bmi}
+Цель по калориям: ${calculations?.target_calories}
+Цель по белкам: ${calculations?.target_protein_g} г
+Цель по жирам: ${calculations?.target_fats_g} г
+Цель по углеводам: ${calculations?.target_carbs_g} г
 
+Вы можете изменить профиль с помощью команды /set_profile
 Или в настройках профиля (кнопка Stats), вкладка "Профиль"`);
         } else {
           await ctx.reply(
@@ -245,6 +255,30 @@ export function setupBotHandlers(
           "Введите ваш рост в сантиметрах или введите /cancel для отмены",
         );
         await upsertUserSession(supabase, ctx.from.id, "waiting_for_height");
+        return;
+      }
+
+      if (message === "/get_profile" && chatType === "private") {
+        console.log("stats command");
+        const userProfile = await getUserProfile(supabase, ctx.from.id);
+        const calculations = await getUserCalculations(supabase, ctx.from.id);
+        await ctx.reply(
+          `Профиль пользователя:
+Рост: ${userProfile?.height_cm} см
+Вес: ${userProfile?.weight_kg} кг
+Целевой вес: ${userProfile?.target_weight_kg} кг
+Пол: ${userProfile?.gender === 0 ? "Мужской" : "Женский"}
+Год рождения: ${userProfile?.birth_year}
+Уровень активности: ${userProfile?.activity_level}
+
+Индекс массы тела: ${calculations?.bmi}
+Цель по калориям: ${calculations?.target_calories}
+Цель по белкам: ${calculations?.target_protein_g} г
+Цель по жирам: ${calculations?.target_fats_g} г
+Цель по углеводам: ${calculations?.target_carbs_g} г
+`,
+        );
+
         return;
       }
 

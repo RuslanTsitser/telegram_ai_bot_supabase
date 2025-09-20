@@ -63,3 +63,11 @@ export interface UserProfile {
   created_at: string;
   updated_at: string;
 }
+
+export interface UserCalculations {
+  bmi: number | null;
+  target_calories: number | null;
+  target_protein_g: number | null;
+  target_fats_g: number | null;
+  target_carbs_g: number | null;
+}
