@@ -34,6 +34,7 @@ import {
 } from "../telegram/subscriptionHandlers.ts";
 import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
 import { selectOptimalPhoto } from "../utils/selectOptimalPhoto.ts";
+import { onboarding } from "./onboarding.ts";
 
 export function setupBotHandlers(
   bot: Bot,
@@ -77,10 +78,10 @@ export function setupBotHandlers(
             ctx.from.id,
             "waiting_for_weight",
           );
-          await ctx.reply("Теперь введите ваш вес в килограммах");
+          await ctx.reply("⚖️ Теперь введите ваш вес в килограммах");
         } else {
           await ctx.reply(
-            "Пожалуйста, введите ваш рост в сантиметрах или введите /cancel для отмены",
+            "📏 Пожалуйста, введите ваш рост в сантиметрах или введите /cancel для отмены",
           );
         }
       } else if (userSession.current_state === "waiting_for_weight") {
@@ -93,10 +94,10 @@ export function setupBotHandlers(
             ctx.from.id,
             "waiting_for_target_weight",
           );
-          await ctx.reply("Теперь введите вашу цель в килограммах");
+          await ctx.reply("🎯 Теперь введите вашу цель в килограммах");
         } else {
           await ctx.reply(
-            "Пожалуйста, введите ваш вес в килограммах или введите /cancel для отмены",
+            "⚖️ Пожалуйста, введите ваш вес в килограммах или введите /cancel для отмены",
           );
         }
       } else if (userSession.current_state === "waiting_for_target_weight") {
@@ -105,10 +106,10 @@ export function setupBotHandlers(
             target_weight_kg: Number(ctx.message.text),
           });
           await upsertUserSession(supabase, ctx.from.id, "waiting_for_gender");
-          await ctx.reply("Теперь укажите ваш пол (М или Ж)");
+          await ctx.reply("👥 Теперь укажите ваш пол (М или Ж)");
         } else {
           await ctx.reply(
-            "Пожалуйста, введите вашу цель в килограммах или введите /cancel для отмены",
+            "🎯 Пожалуйста, введите вашу цель в килограммах или введите /cancel для отмены",
           );
         }
       } else if (userSession.current_state === "waiting_for_gender") {
@@ -120,7 +121,7 @@ export function setupBotHandlers(
           await ctx.reply("Теперь укажите ваш год рождения (например, 1996)");
         } else {
           await ctx.reply(
-            "Пожалуйста, укажите ваш пол (М или Ж) или введите /cancel для отмены",
+            "👥 Пожалуйста, укажите ваш пол (М или Ж) или введите /cancel для отмены",
           );
         }
       } else if (userSession.current_state === "waiting_for_age") {
@@ -133,7 +134,7 @@ export function setupBotHandlers(
             ctx.from.id,
             "waiting_for_activity_level",
           );
-          await ctx.reply(`Теперь укажите ваш уровень активности
+          await ctx.reply(`📏 Теперь укажите ваш уровень активности
 0 - Низкая активность, сидячий образ жизни
 1 - Легкая активность, прогулки, 1-3 тренировки в неделю
 2 - Средняя активность, 3-5 тренировок в неделю
@@ -141,7 +142,7 @@ export function setupBotHandlers(
 4 - Очень высокая активность, интенсивные ежедневные тренировки`);
         } else {
           await ctx.reply(
-            "Пожалуйста, укажите ваш год рождения (например, 1996) или введите /cancel для отмены",
+            "📅 Пожалуйста, укажите ваш год рождения (например, 1996) или введите /cancel для отмены",
           );
         }
       } else if (userSession.current_state === "waiting_for_activity_level") {
@@ -154,7 +155,7 @@ export function setupBotHandlers(
           });
           await deleteUserSession(supabase, ctx.from.id);
           const calculations = await getUserCalculations(supabase, ctx.from.id);
-          await ctx.reply(`Профиль успешно сохранен
+          await ctx.reply(`👤 Профиль успешно сохранен
 Рост: ${userProfile?.height_cm} см
 Вес: ${userProfile?.weight_kg} кг
 Целевой вес: ${userProfile?.target_weight_kg} кг
@@ -172,7 +173,7 @@ export function setupBotHandlers(
 Или в настройках профиля (кнопка Stats), вкладка "Профиль"`);
         } else {
           await ctx.reply(
-            "Пожалуйста, укажите ваш уровень активности (0-4) или введите /cancel для отмены",
+            "💪 Пожалуйста, укажите ваш уровень активности (0-4) или введите /cancel для отмены",
           );
         }
       }
@@ -220,39 +221,15 @@ export function setupBotHandlers(
       if (message === "/start" && chatType === "private") {
         console.log("start message");
 
-        // Проверяем статус пользователя для персонализированного сообщения
-        const userLimits = await checkUserLimits(ctx.from.id, supabase);
+        await onboarding(ctx);
 
-        let welcomeMessage = "👋 Привет! Я бот для анализа питания.\n\n" +
-          "📝 Вот что я умею:\n\n" +
-          "🍽 Анализ рациона по тексту:\n" +
-          "• Опишите блюдо текстом\n" +
-          "• Я проанализирую питательную ценность и дам рекомендации\n\n";
-
-        if (userLimits.isPremium) {
-          welcomeMessage += "📸 Анализ фото еды:\n" +
-            "• Отправьте фото блюда\n" +
-            "• Я оценю его питательную ценность\n\n" +
-            "✅ У вас премиум доступ - без ограничений!\n\n";
-        } else {
-          welcomeMessage += "📊 Лимиты для бесплатных пользователей:\n" +
-            "• Текстовый анализ: 5 раз в день\n" +
-            "• Анализ изображений: только для премиум\n\n" +
-            `📈 Осталось анализов сегодня: ${userLimits.dailyTextAnalysesLeft}\n\n`;
-        }
-
-        welcomeMessage += "💳 Команды:\n" +
-          "• /subscriptions - посмотреть доступные тарифы\n" +
-          "• /limits - проверить текущие лимиты";
-
-        await ctx.reply(welcomeMessage);
         return;
       }
 
       if (message === "/set_profile" && chatType === "private") {
         console.log("set_profile command");
         await ctx.reply(
-          "Введите ваш рост в сантиметрах или введите /cancel для отмены",
+          "📏 Введите ваш рост в сантиметрах или введите /cancel для отмены",
         );
         await upsertUserSession(supabase, ctx.from.id, "waiting_for_height");
         return;
@@ -263,22 +240,28 @@ export function setupBotHandlers(
         const userProfile = await getUserProfile(supabase, ctx.from.id);
         const calculations = await getUserCalculations(supabase, ctx.from.id);
         await ctx.reply(
-          `Профиль пользователя:
-Рост: ${userProfile?.height_cm} см
-Вес: ${userProfile?.weight_kg} кг
-Целевой вес: ${userProfile?.target_weight_kg} кг
-Пол: ${userProfile?.gender === 0 ? "Мужской" : "Женский"}
-Год рождения: ${userProfile?.birth_year}
-Уровень активности: ${userProfile?.activity_level}
+          `
+📏 Рост: ${userProfile?.height_cm} см
+⚖️ Вес: ${userProfile?.weight_kg} кг
+🎯 Целевой вес: ${userProfile?.target_weight_kg} кг
+👥 Пол: ${userProfile?.gender === 0 ? "Мужской" : "Женский"}
+📅 Год рождения: ${userProfile?.birth_year}
+💪 Уровень активности: ${userProfile?.activity_level}
 
-Индекс массы тела: ${calculations?.bmi}
-Цель по калориям: ${calculations?.target_calories}
-Цель по белкам: ${calculations?.target_protein_g} г
-Цель по жирам: ${calculations?.target_fats_g} г
-Цель по углеводам: ${calculations?.target_carbs_g} г
+📊 Индекс массы тела: ${calculations?.bmi}
+🎯 Цель по калориям: ${calculations?.target_calories}
+🥩 Цель по белкам: ${calculations?.target_protein_g} г
+🥑 Цель по жирам: ${calculations?.target_fats_g} г
+🍚 Цель по углеводам: ${calculations?.target_carbs_g} г
 `,
         );
 
+        return;
+      }
+
+      if (message === "/help" && chatType === "private") {
+        console.log("help command");
+        await onboarding(ctx);
         return;
       }
 
@@ -344,6 +327,12 @@ export function setupBotHandlers(
 
     // Handle photo messages
     if (ctx.message.photo) {
+      if (ctx.message.caption === "file_id" && chatType === "private") {
+        const fileId = ctx.message.photo[0].file_id;
+        await ctx.reply(fileId);
+        return;
+      }
+
       // Проверяем лимиты пользователя
       const userLimits = await checkUserLimits(ctx.from.id, supabase);
 
