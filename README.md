@@ -14,7 +14,8 @@ telegram_bot_supabase/
                 |--- deploy.sh             # Деплой
                 |--- run.sh                # Запуск
                 |--- set_env.sh            # Настройка переменных окружения
-            |--- src/               # Скрипты
+                |--- setup_webhooks.sh     # Настройка webhook'ов
+            |--- src/                     # Исходный код
                 |--- ai/                   # AI обработчики
                 |--- bot/                  # Обработчики ботов
                 |--- config/               # Конфигурация ботов
@@ -26,7 +27,14 @@ telegram_bot_supabase/
             |--- .env                  # Переменные окружения
             |--- deno.json             # Дено зависимости
             |--- index.ts              # Основной файл бота
-|--- README.md
+    |--- migrations/                   # Миграции БД
+        |--- 20240321000000_initial_schema.sql
+        |--- 20250920220000_create_user_sessions.sql
+        |--- 20250922220000_add_bot_id_to_message_relationships.sql
+        |--- 20250922220001_add_bot_id_to_food_analysis.sql
+|--- CHANGELOG.md                     # История изменений
+|--- LICENSE                          # Лицензия MIT
+|--- README.md                        # Документация
 ```
 
 ## Переменные окружения
