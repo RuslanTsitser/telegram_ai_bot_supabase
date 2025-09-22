@@ -4,6 +4,7 @@ export interface MessageRelationship {
   user_message_id: number;
   bot_message_id: number;
   chat_id: number;
+  bot_id: string;
 }
 
 export interface FoodAnalysisData {

@@ -384,6 +384,7 @@ export function setupBotHandlers(
           user_message_id: ctx.message.message_id,
           bot_message_id: sentMessage.message_id,
           chat_id: ctx.chat.id,
+          bot_id: config.id,
         };
         const { data, error } = await insertMessageRelationship(
           supabase,
@@ -475,6 +476,7 @@ export function setupBotHandlers(
           user_message_id: ctx.message.message_id,
           bot_message_id: sentMessage.message_id,
           chat_id: ctx.chat.id,
+          bot_id: config.id,
         };
         const { data, error } = await insertMessageRelationship(
           supabase,
@@ -627,6 +629,7 @@ export function setupBotHandlers(
         supabase,
         edited.message_id,
         edited.chat.id,
+        config.id,
       );
 
       if (data?.bot_message_id) {
@@ -674,6 +677,7 @@ export function setupBotHandlers(
         supabase,
         edited.message_id,
         edited.chat.id,
+        config.id,
       );
 
       if (data?.bot_message_id) {

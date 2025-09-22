@@ -16,12 +16,14 @@ export async function getBotMessageId(
   supabase: SupabaseClient,
   userMessageId: number,
   chatId: number,
+  botId: string,
 ) {
   const { data, error } = await supabase
     .from("message_relationships")
     .select("bot_message_id")
     .eq("user_message_id", userMessageId)
     .eq("chat_id", chatId)
+    .eq("bot_id", botId)
     .single();
 
   return { data, error };
