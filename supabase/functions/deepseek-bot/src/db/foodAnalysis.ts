@@ -24,7 +24,7 @@ export async function upsertFoodAnalysis(
   const { data, error } = await supabase
     .from("food_analysis")
     .upsert(analysisData, {
-      onConflict: "message_id,chat_id",
+      onConflict: "message_id,chat_id,bot_id",
     });
 
   if (error) {

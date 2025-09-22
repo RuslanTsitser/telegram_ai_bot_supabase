@@ -11,6 +11,7 @@ export interface FoodAnalysisData {
   chat_id: number;
   user_id: number;
   message_id: number;
+  bot_id: string;
   description: string;
   mass: number;
   calories: number;
