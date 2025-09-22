@@ -60,7 +60,7 @@ const webhookHandlers = new Map();
 for (const [botId, { bot, config }] of bots) {
   const handleUpdate = webhookCallback(bot, "std/http", "throw", 4 * 60 * 1000);
   webhookHandlers.set(botId, handleUpdate);
-  console.log(`Created webhook handler for bot: ${config.name}`);
+  console.log(`Created webhook handler for bot: ${config.id}`);
 }
 
 Deno.serve(async (req) => {
@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       return new Response("Handler not found", { status: 500 });
     }
 
-    console.log(`Processing request for bot: ${config.name} (${botId})`);
+    console.log(`Processing request for bot: ${config.id} (${botId})`);
     return await handleUpdate(req);
   } catch (err) {
     console.error("Error in webhook handler:", err);
