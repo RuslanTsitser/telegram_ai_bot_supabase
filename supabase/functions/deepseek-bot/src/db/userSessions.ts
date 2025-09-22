@@ -41,7 +41,7 @@ export async function getUserSession(
       .from("user_sessions")
       .select("*")
       .eq("telegram_user_id", telegramUserId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("Ошибка получения сессии пользователя:", error);
