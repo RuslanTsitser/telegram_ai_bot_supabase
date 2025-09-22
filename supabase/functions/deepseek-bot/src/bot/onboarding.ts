@@ -62,7 +62,7 @@ export async function onboarding(ctx: Context) {
       {
         type: "photo",
         media:
-          "AgACAgIAAxkBAAOBaM87Ls9EwLYpHgzZoe1q68Z6IEQAAl_-MRsQV3lKBCd4TT6BCxMBAAMCAANzAAM2BA",
+          "AgACAgIAAxkBAAIBO2jRBCH8JqaOTGsgGa29kd5BdxlwAAJ_-DEbb8mJSim1lXipgfDHAQADAgADcwADNgQ",
         caption: "Как открыть приложение",
       },
       {
