@@ -288,8 +288,8 @@ export function setupBotHandlers(
         const keyboard = {
           inline_keyboard: plans?.map((plan) => [{
             text: plan.price === 0
-              ? `🆓 Активировать ${plan.name}`
-              : `💳 Купить ${plan.name} за ${plan.price}₽`,
+              ? `🆓 ${plan.name}`
+              : `💳 ${plan.name} за ${plan.price}₽`,
             callback_data: inTest
               ? `subscription_test_${plan.id}`
               : `subscription_${plan.id}`,
