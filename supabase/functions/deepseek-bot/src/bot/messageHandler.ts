@@ -300,7 +300,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         console.log("subscriptions command");
         const inTest = message === "/subscriptions_test";
 
-        const plans = await getSubscriptionPlans(supabase);
+        const plans = await getSubscriptionPlans(supabase, ctx.from.id);
 
         if (!plans) {
           await ctx.reply(i18n.t("error"));

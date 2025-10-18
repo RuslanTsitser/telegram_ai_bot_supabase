@@ -37,6 +37,7 @@ export interface SubscriptionPlan {
   duration_days: number;
   is_active: boolean;
   created_at: string;
+  available_promo_codes: string[];
 }
 
 export interface DbUser {
