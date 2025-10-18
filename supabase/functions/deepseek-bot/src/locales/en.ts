@@ -11,6 +11,7 @@ export const en = {
   limits: "Limits",
   subscriptions: "Subscriptions",
   language: "Language",
+  set_promo: "Promo code",
 
   // User profile
   profile_saved: "👤 Profile successfully saved",
@@ -49,6 +50,11 @@ export const en = {
     "📅 Please specify your birth year (e.g., 1996) or type /cancel to cancel",
   invalid_activity_level:
     "💪 Please specify your activity level (0-4) or type /cancel to cancel",
+  enter_promo_code: "🎟️ Enter your promo code or type /cancel to cancel",
+  invalid_promo_code:
+    "🎟️ Please enter a valid promo code or type /cancel to cancel",
+  promo_code_updated: "✅ Promo code successfully updated: {code}",
+  promo_code_update_error: "❌ Error updating promo code",
 
   // Calculations
   bmi: "Body Mass Index",

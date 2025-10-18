@@ -88,3 +88,21 @@ export async function getUserLanguage(
 
   return data.language || "ru";
 }
+
+export async function updateUserPromo(
+  supabase: SupabaseClient,
+  userId: number,
+  promo: string,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("users")
+    .update({ promo })
+    .eq("telegram_user_id", userId);
+
+  if (error) {
+    console.error("Ошибка обновления промо-кода пользователя:", error);
+    return false;
+  }
+
+  return true;
+}

@@ -16,6 +16,7 @@ import {
   getUserByTelegramId,
   getUserLanguage,
   updateUserLanguage,
+  updateUserPromo,
   upsertUser,
 } from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
@@ -177,6 +178,24 @@ ${i18n.t("start_analysis")}
 `);
         } else {
           await ctx.reply(i18n.t("invalid_activity_level"));
+        }
+      } else if (userSession.current_state === "waiting_for_promo") {
+        if (ctx.message.text && ctx.message.text.trim().length > 0) {
+          const promoCode = ctx.message.text.trim();
+          const success = await updateUserPromo(
+            supabase,
+            ctx.from.id,
+            promoCode,
+          );
+
+          if (success) {
+            await deleteUserSession(supabase, ctx.from.id);
+            await ctx.reply(i18n.t("promo_code_updated", { code: promoCode }));
+          } else {
+            await ctx.reply(i18n.t("promo_code_update_error"));
+          }
+        } else {
+          await ctx.reply(i18n.t("invalid_promo_code"));
         }
       }
       return;
@@ -347,6 +366,13 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         };
 
         await ctx.reply(i18n.t("select_language"), { reply_markup: keyboard });
+        return;
+      }
+
+      if (message === "/set_promo" && chatType === "private") {
+        console.log("set_promo command");
+        await ctx.reply(i18n.t("enter_promo_code"));
+        await upsertUserSession(supabase, ctx.from.id, "waiting_for_promo");
         return;
       }
     }

@@ -50,7 +50,7 @@ export interface DbUser {
   created_at: string;
   last_activity: string;
   trial_used: boolean;
-  price_test_group: string;
+  promo: string;
   language: string;
 }
 

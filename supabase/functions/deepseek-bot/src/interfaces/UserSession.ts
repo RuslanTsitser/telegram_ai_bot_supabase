@@ -7,7 +7,8 @@ export interface UserSession {
     | "waiting_for_weight"
     | "waiting_for_gender"
     | "waiting_for_age"
-    | "waiting_for_activity_level";
+    | "waiting_for_activity_level"
+    | "waiting_for_promo";
   created_at: string;
   updated_at: string;
 }
