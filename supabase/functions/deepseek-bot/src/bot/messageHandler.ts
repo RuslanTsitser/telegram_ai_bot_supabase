@@ -12,7 +12,12 @@ import {
   getSubscriptionPlanById,
   getSubscriptionPlans,
 } from "../db/subscriptions.ts";
-import { getUserByTelegramId, upsertUser } from "../db/upsertUser.ts";
+import {
+  getUserByTelegramId,
+  getUserLanguage,
+  updateUserLanguage,
+  upsertUser,
+} from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
 import {
   getUserCalculations,
@@ -33,6 +38,7 @@ import {
   handleTrialSubscription,
 } from "../telegram/subscriptionHandlers.ts";
 import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
+import { createI18n } from "../utils/i18n.ts";
 import { selectOptimalPhoto } from "../utils/selectOptimalPhoto.ts";
 import { onboarding } from "./onboarding.ts";
 
@@ -47,6 +53,10 @@ export function setupBotHandlers(
 
     // Обрабатываем пользователя при каждом сообщении
     await upsertUser(ctx, supabase);
+
+    // Получаем язык пользователя и создаем i18n экземпляр
+    const userLanguage = await getUserLanguage(supabase, ctx.from.id);
+    const i18n = createI18n(userLanguage);
 
     const userSession = await getUserSession(supabase, ctx.from.id);
 
@@ -78,11 +88,9 @@ export function setupBotHandlers(
             ctx.from.id,
             "waiting_for_weight",
           );
-          await ctx.reply("⚖️ Теперь введите ваш вес в килограммах");
+          await ctx.reply(i18n.t("enter_weight"));
         } else {
-          await ctx.reply(
-            "📏 Пожалуйста, введите ваш рост в сантиметрах или введите /cancel для отмены",
-          );
+          await ctx.reply(i18n.t("invalid_height"));
         }
       } else if (userSession.current_state === "waiting_for_weight") {
         if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
@@ -94,11 +102,9 @@ export function setupBotHandlers(
             ctx.from.id,
             "waiting_for_target_weight",
           );
-          await ctx.reply("🎯 Теперь введите вашу цель в килограммах");
+          await ctx.reply(i18n.t("enter_target_weight"));
         } else {
-          await ctx.reply(
-            "⚖️ Пожалуйста, введите ваш вес в килограммах или введите /cancel для отмены",
-          );
+          await ctx.reply(i18n.t("invalid_weight"));
         }
       } else if (userSession.current_state === "waiting_for_target_weight") {
         if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
@@ -106,11 +112,9 @@ export function setupBotHandlers(
             target_weight_kg: Number(ctx.message.text),
           });
           await upsertUserSession(supabase, ctx.from.id, "waiting_for_gender");
-          await ctx.reply("👥 Теперь укажите ваш пол (М или Ж)");
+          await ctx.reply(i18n.t("enter_gender"));
         } else {
-          await ctx.reply(
-            "🎯 Пожалуйста, введите вашу цель в килограммах или введите /cancel для отмены",
-          );
+          await ctx.reply(i18n.t("invalid_target_weight"));
         }
       } else if (userSession.current_state === "waiting_for_gender") {
         if (ctx.message.text === "М" || ctx.message.text === "Ж") {
@@ -118,11 +122,9 @@ export function setupBotHandlers(
             gender: ctx.message.text === "М" ? 0 : 1,
           });
           await upsertUserSession(supabase, ctx.from.id, "waiting_for_age");
-          await ctx.reply("Теперь укажите ваш год рождения (например, 1996)");
+          await ctx.reply(i18n.t("enter_age"));
         } else {
-          await ctx.reply(
-            "👥 Пожалуйста, укажите ваш пол (М или Ж) или введите /cancel для отмены",
-          );
+          await ctx.reply(i18n.t("invalid_gender"));
         }
       } else if (userSession.current_state === "waiting_for_age") {
         if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
@@ -134,16 +136,9 @@ export function setupBotHandlers(
             ctx.from.id,
             "waiting_for_activity_level",
           );
-          await ctx.reply(`📏 Теперь укажите ваш уровень активности
-0 - Низкая активность, сидячий образ жизни
-1 - Легкая активность, прогулки, 1-3 тренировки в неделю
-2 - Средняя активность, 3-5 тренировок в неделю
-3 - Высокая активность, ежедневные тренировки
-4 - Очень высокая активность, интенсивные ежедневные тренировки`);
+          await ctx.reply(i18n.t("enter_activity_level"));
         } else {
-          await ctx.reply(
-            "📅 Пожалуйста, укажите ваш год рождения (например, 1996) или введите /cancel для отмены",
-          );
+          await ctx.reply(i18n.t("invalid_age"));
         }
       } else if (userSession.current_state === "waiting_for_activity_level") {
         if (
@@ -155,29 +150,33 @@ export function setupBotHandlers(
           });
           await deleteUserSession(supabase, ctx.from.id);
           const calculations = await getUserCalculations(supabase, ctx.from.id);
-          await ctx.reply(`👤 Профиль успешно сохранен
-Рост: ${userProfile?.height_cm} см
-Вес: ${userProfile?.weight_kg} кг
-Целевой вес: ${userProfile?.target_weight_kg} кг
-Пол: ${userProfile?.gender === 0 ? "Мужской" : "Женский"}
-Год рождения: ${userProfile?.birth_year}
-Уровень активности: ${userProfile?.activity_level}
+          await ctx.reply(`${i18n.t("profile_saved")}
+${i18n.t("profile_height")}: ${userProfile?.height_cm} ${i18n.t("cm")}
+${i18n.t("profile_weight")}: ${userProfile?.weight_kg} ${i18n.t("kg")}
+${i18n.t("profile_target_weight")}: ${userProfile?.target_weight_kg} ${
+            i18n.t("kg")
+          }
+${i18n.t("profile_gender")}: ${
+            userProfile?.gender === 0
+              ? i18n.t("profile_male")
+              : i18n.t("profile_female")
+          }
+${i18n.t("profile_birth_year")}: ${userProfile?.birth_year}
+${i18n.t("profile_activity_level")}: ${userProfile?.activity_level}
 
-Индекс массы тела: ${calculations?.bmi}
-Цель по калориям: ${calculations?.target_calories}
-Цель по белкам: ${calculations?.target_protein_g} г
-Цель по жирам: ${calculations?.target_fats_g} г
-Цель по углеводам: ${calculations?.target_carbs_g} г
+${i18n.t("bmi")}: ${calculations?.bmi}
+${i18n.t("target_calories")}: ${calculations?.target_calories}
+${i18n.t("target_protein")}: ${calculations?.target_protein_g} ${i18n.t("g")}
+${i18n.t("target_fats")}: ${calculations?.target_fats_g} ${i18n.t("g")}
+${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
 
-Вы можете изменить профиль с помощью команды /set_profile
-Или в настройках профиля (кнопка Stats), вкладка "Профиль"
+${i18n.t("change_profile")}
+${i18n.t("profile_settings")}
 
-Чтобы начать анализ, пожалуйста, пришлите фотографию блюда или опишите его текстом :)
+${i18n.t("start_analysis")}
 `);
         } else {
-          await ctx.reply(
-            "💪 Пожалуйста, укажите ваш уровень активности (0-4) или введите /cancel для отмены",
-          );
+          await ctx.reply(i18n.t("invalid_activity_level"));
         }
       }
       return;
@@ -195,11 +194,14 @@ export function setupBotHandlers(
       if (result.success) {
         // Отправляем сообщение об успешной активации
         await ctx.reply(
-          `🎉 Подписка "${result.planName}" успешно активирована!\n\n` +
-            `Доступен до: ${
-              result.subscriptionEndDate!.toLocaleDateString("ru-RU")
-            }\n\n` +
-            `Теперь у вас есть полный доступ ко всем функциям!`,
+          i18n.t("subscription_activated", {
+            planName: result.planName || "Unknown",
+          }) +
+            "\n\n" +
+            i18n.t("subscription_expires", {
+              date: result.subscriptionEndDate!.toLocaleDateString("ru-RU"),
+            }) + "\n\n" +
+            i18n.t("subscription_full_access"),
         );
 
         const payload = ctx.message.successful_payment.invoice_payload;
@@ -212,7 +214,7 @@ export function setupBotHandlers(
         );
       } else {
         console.error("Error processing payment:", result.error);
-        await ctx.reply("❌ Произошла ошибка при обработке платежа");
+        await ctx.reply(i18n.t("payment_error"));
       }
       return;
     }
@@ -224,16 +226,14 @@ export function setupBotHandlers(
       if (message === "/start" && chatType === "private") {
         console.log("start message");
 
-        await onboarding(ctx);
+        await onboarding(ctx, supabase);
 
         return;
       }
 
       if (message === "/set_profile" && chatType === "private") {
         console.log("set_profile command");
-        await ctx.reply(
-          "📏 Введите ваш рост в сантиметрах или введите /cancel для отмены",
-        );
+        await ctx.reply(i18n.t("enter_height"));
         await upsertUserSession(supabase, ctx.from.id, "waiting_for_height");
         return;
       }
@@ -244,18 +244,24 @@ export function setupBotHandlers(
         const calculations = await getUserCalculations(supabase, ctx.from.id);
         await ctx.reply(
           `
-📏 Рост: ${userProfile?.height_cm} см
-⚖️ Вес: ${userProfile?.weight_kg} кг
-🎯 Целевой вес: ${userProfile?.target_weight_kg} кг
-👥 Пол: ${userProfile?.gender === 0 ? "Мужской" : "Женский"}
-📅 Год рождения: ${userProfile?.birth_year}
-💪 Уровень активности: ${userProfile?.activity_level}
+${i18n.t("profile_height")}: ${userProfile?.height_cm} ${i18n.t("cm")}
+${i18n.t("profile_weight")}: ${userProfile?.weight_kg} ${i18n.t("kg")}
+${i18n.t("profile_target_weight")}: ${userProfile?.target_weight_kg} ${
+            i18n.t("kg")
+          }
+${i18n.t("profile_gender")}: ${
+            userProfile?.gender === 0
+              ? i18n.t("profile_male")
+              : i18n.t("profile_female")
+          }
+${i18n.t("profile_birth_year")}: ${userProfile?.birth_year}
+${i18n.t("profile_activity_level")}: ${userProfile?.activity_level}
 
-📊 Индекс массы тела: ${calculations?.bmi}
-🎯 Цель по калориям: ${calculations?.target_calories}
-🥩 Цель по белкам: ${calculations?.target_protein_g} г
-🥑 Цель по жирам: ${calculations?.target_fats_g} г
-🍚 Цель по углеводам: ${calculations?.target_carbs_g} г
+${i18n.t("bmi")}: ${calculations?.bmi}
+${i18n.t("target_calories")}: ${calculations?.target_calories}
+${i18n.t("target_protein")}: ${calculations?.target_protein_g} ${i18n.t("g")}
+${i18n.t("target_fats")}: ${calculations?.target_fats_g} ${i18n.t("g")}
+${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
 `,
         );
 
@@ -264,7 +270,7 @@ export function setupBotHandlers(
 
       if (message === "/help" && chatType === "private") {
         console.log("help command");
-        await onboarding(ctx);
+        await onboarding(ctx, supabase);
         return;
       }
 
@@ -278,11 +284,11 @@ export function setupBotHandlers(
         const plans = await getSubscriptionPlans(supabase);
 
         if (!plans) {
-          await ctx.reply("❌ Ошибка при получении тарифов");
+          await ctx.reply(i18n.t("error"));
           return;
         }
 
-        const subscriptionMessage = "💳 Доступные тарифы:\n\n";
+        const subscriptionMessage = i18n.t("subscriptions_title") + "\n\n";
 
         // Создаем inline кнопки для каждого тарифа
         const keyboard = {
@@ -305,25 +311,42 @@ export function setupBotHandlers(
 
         const userLimits = await checkUserLimits(ctx.from.id, supabase);
 
-        let limitsMessage = "📊 Ваши текущие лимиты:\n\n";
+        let limitsMessage = i18n.t("limits_title") + "\n\n";
 
         if (userLimits.isPremium) {
-          limitsMessage += "✅ Премиум статус активен\n" +
-            "🎉 Безлимитный доступ ко всем функциям:\n" +
-            "• Анализ по тексту: без ограничений\n" +
-            "• Анализ по изображениям: без ограничений\n\n";
+          limitsMessage += i18n.t("premium_active") + "\n" +
+            i18n.t("premium_unlimited") + "\n" +
+            i18n.t("premium_text_analysis") + "\n" +
+            i18n.t("premium_image_analysis") + "\n\n";
         } else {
-          limitsMessage += "🆓 Бесплатный аккаунт\n" +
-            "📝 Доступные функции:\n" +
-            "• Анализ по тексту: " + (userLimits.dailyTextAnalysesLeft > 0
-              ? `${userLimits.dailyTextAnalysesLeft} из 5 в день`
-              : "лимит исчерпан") +
+          limitsMessage += i18n.t("free_account") + "\n" +
+            i18n.t("free_features") + "\n" +
+            i18n.t("free_text_analysis") + " " +
+            (userLimits.dailyTextAnalysesLeft > 0
+              ? `${userLimits.dailyTextAnalysesLeft} ${
+                i18n.t("free_text_analysis_limit")
+              }`
+              : i18n.t("free_text_analysis_exhausted")) +
             "\n" +
-            "• Анализ по изображениям: только для премиум\n\n" +
-            "💎 Оформите подписку командой /subscriptions для получения полного доступа";
+            i18n.t("free_image_analysis") + "\n\n" +
+            i18n.t("subscribe_prompt");
         }
 
         await ctx.reply(limitsMessage);
+        return;
+      }
+
+      if (message === "/language" && chatType === "private") {
+        console.log("language command");
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: "🇷🇺 Русский", callback_data: "language_ru" }],
+            [{ text: "🇺🇸 English", callback_data: "language_en" }],
+          ],
+        };
+
+        await ctx.reply(i18n.t("select_language"), { reply_markup: keyboard });
         return;
       }
     }
@@ -342,12 +365,12 @@ export function setupBotHandlers(
       if (!userLimits.canAnalyzeImage) {
         if (!userLimits.isPremium) {
           await ctx.reply(
-            "🚫 Анализ изображений доступен только премиум пользователям!\n\n" +
-              "💎 Оформите подписку командой /subscriptions для получения полного доступа ко всем функциям.",
+            i18n.t("image_analysis_premium_only") + "\n\n" +
+              i18n.t("image_analysis_subscribe"),
           );
           return;
         } else {
-          await ctx.reply("❌ Произошла ошибка при проверке доступа");
+          await ctx.reply(i18n.t("access_check_error"));
           return;
         }
       }
@@ -435,13 +458,15 @@ export function setupBotHandlers(
       if (!userLimits.canAnalyzeText) {
         if (!userLimits.isPremium) {
           await ctx.reply(
-            `🚫 Достигнут дневной лимит анализов!\n\n` +
-              `📊 Осталось анализов сегодня: ${userLimits.dailyTextAnalysesLeft}\n\n` +
-              `💎 Оформите подписку командой /subscriptions для получения безлимитного доступа.`,
+            i18n.t("text_analysis_limit_reached") + "\n\n" +
+              i18n.t("text_analysis_remaining", {
+                count: userLimits.dailyTextAnalysesLeft,
+              }) + "\n\n" +
+              i18n.t("text_analysis_subscribe"),
           );
           return;
         } else {
-          await ctx.reply("❌ Произошла ошибка при проверке доступа");
+          await ctx.reply(i18n.t("access_check_error"));
           return;
         }
       }
@@ -462,8 +487,10 @@ export function setupBotHandlers(
         // Добавляем информацию о лимитах для бесплатных пользователей
         if (!userLimits.isPremium && userLimits.dailyTextAnalysesLeft > 0) {
           await ctx.reply(
-            `📊 Осталось анализов сегодня: ${userLimits.dailyTextAnalysesLeft}\n\n` +
-              `💎 Оформите подписку командой /subscriptions для безлимитного доступа!`,
+            i18n.t("text_analysis_remaining_after", {
+              count: userLimits.dailyTextAnalysesLeft,
+            }) + "\n\n" +
+              i18n.t("text_analysis_subscribe_after"),
           );
         }
       }
@@ -522,6 +549,24 @@ export function setupBotHandlers(
 
   // Обработчик для inline кнопок подписок
   bot.on("callback_query", async (ctx) => {
+    // Получаем язык пользователя для callback обработчиков
+    const userLanguage = await getUserLanguage(supabase, ctx.from.id);
+    const i18n = createI18n(userLanguage);
+
+    // Обработка смены языка
+    if (ctx.callbackQuery.data?.startsWith("language_")) {
+      const language = ctx.callbackQuery.data.replace("language_", "");
+      const success = await updateUserLanguage(supabase, ctx.from.id, language);
+
+      if (success) {
+        const newI18n = createI18n(language);
+        await ctx.answerCallbackQuery(newI18n.t("language_changed"));
+      } else {
+        await ctx.answerCallbackQuery(i18n.t("error"));
+      }
+      return;
+    }
+
     if (
       ctx.callbackQuery.data?.startsWith("subscription_") ||
       ctx.callbackQuery.data?.startsWith("subscription_test_")
@@ -562,13 +607,17 @@ export function setupBotHandlers(
   bot.on("pre_checkout_query", async (ctx) => {
     console.log("pre_checkout_query received");
 
+    // Получаем язык пользователя для pre_checkout обработчика
+    const userLanguage = await getUserLanguage(supabase, ctx.from.id);
+    const i18n = createI18n(userLanguage);
+
     try {
       // Получаем данные из payload
       const payload = ctx.preCheckoutQuery.invoice_payload;
       const [type, planId, userId] = payload.split("_");
 
       if (type !== "subscription") {
-        await ctx.answerPreCheckoutQuery(false, "Неверный тип платежа");
+        await ctx.answerPreCheckoutQuery(false, i18n.t("error"));
         return;
       }
 
@@ -578,7 +627,7 @@ export function setupBotHandlers(
       if (!plan) {
         await ctx.answerPreCheckoutQuery(
           false,
-          "Тариф не найден или неактивен",
+          i18n.t("error"),
         );
         return;
       }
@@ -587,7 +636,7 @@ export function setupBotHandlers(
       const user = await getUserByTelegramId(supabase, parseInt(userId));
 
       if (!user) {
-        await ctx.answerPreCheckoutQuery(false, "Пользователь не найден");
+        await ctx.answerPreCheckoutQuery(false, i18n.t("error"));
         return;
       }
 
@@ -596,7 +645,7 @@ export function setupBotHandlers(
       console.log("Pre-checkout approved for plan:", planId);
     } catch (error) {
       console.error("Error in pre_checkout_query:", error);
-      await ctx.answerPreCheckoutQuery(false, "Ошибка при проверке платежа");
+      await ctx.answerPreCheckoutQuery(false, i18n.t("error"));
     }
   });
 
@@ -607,6 +656,9 @@ export function setupBotHandlers(
 
     // Обрабатываем пользователя при каждом сообщении
     await upsertUser(ctx, supabase);
+
+    // Получаем язык пользователя (для будущего использования)
+    const _userLanguage = await getUserLanguage(supabase, ctx.from.id);
 
     // Handle edited photo caption
     if (edited.photo) {

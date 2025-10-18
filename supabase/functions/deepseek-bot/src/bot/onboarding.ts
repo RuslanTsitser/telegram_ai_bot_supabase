@@ -1,22 +1,32 @@
 import { Context } from "https://deno.land/x/grammy@v1.8.3/context.ts";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getUserLanguage } from "../db/upsertUser.ts";
+import { createI18n } from "../utils/i18n.ts";
 
-export async function onboarding(ctx: Context) {
+export async function onboarding(ctx: Context, supabase?: SupabaseClient) {
   console.log("help command");
+
+  // Получаем язык пользователя и создаем i18n экземпляр
+  let userLanguage = "ru";
+  if (supabase && ctx.from) {
+    userLanguage = await getUserLanguage(supabase, ctx.from.id);
+  }
+  const i18n = createI18n(userLanguage);
+
   await ctx.reply(
-    `
-👋 Привет! Я бот для анализа питания.
+    `${i18n.t("onboarding_welcome")}
 
-🤖 Я помогу вам посчитать КБЖУ блюда по текстовому описанию или фотографии.
+${i18n.t("onboarding_description")}
 
-📸 Для анализа по фотографии достаточно отправить фотографию блюда.
-✍️ Для анализа по описанию достаточно отправить текст с описанием блюда.
+${i18n.t("onboarding_photo")}
+${i18n.t("onboarding_text")}
 
-📝 Примеры текстового описания блюда:
-- Макароны из твердых сортов пшеницы вареные в воде 100 г, куриное филе отварное 100 г
-- Бургер из KFC с картофелем фри и напитком 500 мл
-- Перекус из банана и йогурта
+${i18n.t("onboarding_examples_title")}
+${i18n.t("onboarding_example1")}
+${i18n.t("onboarding_example2")}
+${i18n.t("onboarding_example3")}
 
-Ниже приведены скриншоты примеров анализа по фотографии
+${i18n.t("onboarding_screenshots")}
 `,
   );
   await ctx.replyWithMediaGroup(
@@ -25,36 +35,36 @@ export async function onboarding(ctx: Context) {
         type: "photo",
         media:
           "AgACAgIAAxkBAAN5aM83AraxWdMb0VAbzm9OOBV1EqkAAlL-MRsQV3lKH6ogu4OcFAgBAAMCAANzAAM2BA",
-        caption: "Пример анализа блюда по текстовому описанию",
+        caption: i18n.t("onboarding_caption_text_example"),
       },
       {
         type: "photo",
         media:
           "AgACAgIAAxkBAAN1aM820o_W4VdPCpQD9m42j1xAw6AAAk_-MRsQV3lKHdyf7b71FBsBAAMCAANzAAM2BA",
-        caption: "Пример анализа блюда по фотографии",
+        caption: i18n.t("onboarding_caption_photo_example"),
       },
       {
         type: "photo",
         media:
           "AgACAgIAAxkBAAN7aM83YQTSpL36ZHfayt3Efy_pihoAAlP-MRsQV3lKEsYYtSq8VnQBAAMCAANzAAM2BA",
-        caption: "Пример анализа блюда по фотографии и текстовому описанию",
+        caption: i18n.t("onboarding_caption_combined_example"),
       },
     ],
   );
   await ctx.reply(
-    `⚠️ Важно:
+    `${i18n.t("onboarding_important")}
 
-📝 - Чтобы мне было проще посчитать питательную ценность, пожалуйста, опишите блюдо максимально подробно
-📸 - На фотографии должны быть отчетливо видны все продукты, которые составляют блюдо
+${i18n.t("onboarding_text_tip")}
+${i18n.t("onboarding_photo_tip")}
 
-✏️ Если я неточно определил блюдо, вы всегда можете отредактировать сообщение, и я проанализую его заново
+${i18n.t("onboarding_edit_tip")}
 
 
-📱 У меня есть также специальное приложение, в котором вы сможете:
+${i18n.t("onboarding_app_title")}
       
-1) 📊 смотреть статистику по КБЖУ за день
-2) 🗑️ удалять блюда из истории  
-3) ⚙️ изменять настройки профиля
+${i18n.t("onboarding_app_feature1")}
+${i18n.t("onboarding_app_feature2")}
+${i18n.t("onboarding_app_feature3")}
 `,
   );
   await ctx.replyWithMediaGroup(
@@ -63,37 +73,36 @@ export async function onboarding(ctx: Context) {
         type: "photo",
         media:
           "AgACAgIAAxkBAAIBO2jRBCH8JqaOTGsgGa29kd5BdxlwAAJ_-DEbb8mJSim1lXipgfDHAQADAgADcwADNgQ",
-        caption: "Как открыть приложение",
+        caption: i18n.t("onboarding_caption_app_open"),
       },
       {
         type: "photo",
         media:
           "AgACAgIAAxkBAAN_aM84MeSw1UYzFcffxt097bTFwkEAAlb-MRsQV3lK0RIdz0z3sWgBAAMCAANzAAM2BA",
-        caption: "Экран статистики",
+        caption: i18n.t("onboarding_caption_stats"),
       },
       {
         type: "photo",
         media:
           "AgACAgIAAxkBAAODaM88IT4Pg_aFr8k6Ig4OA3HLAccAAmH-MRsQV3lKRgU9rXrobOsBAAMCAANzAAM2BA",
-        caption:
-          "Для удаления блюда из истории достаточно просто свайпнуть влево",
+        caption: i18n.t("onboarding_caption_delete"),
       },
       {
         type: "photo",
         media:
           "AgACAgIAAxkBAAN9aM84J563FTmJstC7314Dw52IYYQAAlX-MRsQV3lKAVdPUc4iK6UBAAMCAANzAAM2BA",
-        caption: "Настройки профиля",
+        caption: i18n.t("onboarding_caption_profile"),
       },
     ],
   );
   await ctx.reply(`
-📝 Для всех пользователей я могу анализировать блюда по текстовому описанию 5 раз в день.
+${i18n.t("onboarding_limits")}
 
-⭐️ Для премиум пользователей анализ блюд - без ограничений. 
-📸 Также открывается безлимитный доступ к анализу блюд по фотографии.
+${i18n.t("onboarding_premium")}
+${i18n.t("onboarding_premium_photo")}
 
-💫 Оформите премиум подписку для получения полного доступа ко всем функциям, нажмите /subscriptions
+${i18n.t("onboarding_subscribe")}
 
-Также предлагаю настроить профиль с помощью команды /set_profile
+${i18n.t("onboarding_profile")}
       `);
 }

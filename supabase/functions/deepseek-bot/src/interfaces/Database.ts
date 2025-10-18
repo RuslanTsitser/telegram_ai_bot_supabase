@@ -51,6 +51,7 @@ export interface DbUser {
   last_activity: string;
   trial_used: boolean;
   price_test_group: string;
+  language: string;
 }
 
 export interface UserProfile {

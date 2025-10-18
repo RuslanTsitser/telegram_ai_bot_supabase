@@ -1,6 +1,6 @@
 # File Tree: src
 
-**Generated:** 10/18/2025, 12:57:26 PM
+**Generated:** 10/18/2025, 2:06:03 PM
 **Root Path:** `./supabase/functions/deepseek-bot/src`
 
 ```src/
@@ -25,6 +25,10 @@
 │   ├── Database.ts
 │   ├── FoodAnalysis.ts
 │   └── UserSession.ts
+├── locales
+│   ├── en.ts
+│   ├── index.ts
+│   └── ru.ts
 ├── prompts
 │   └── foodImagePrompt.ts
 ├── telegram
@@ -33,5 +37,6 @@
 └── utils
     ├── declension.ts
     ├── formatFoodAnalysisMessage.ts
+    ├── i18n.ts
     └── selectOptimalPhoto.ts
 ```
