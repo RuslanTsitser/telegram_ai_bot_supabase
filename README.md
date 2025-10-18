@@ -9,15 +9,7 @@ Telegram бот, который помогает анализировать ра
 
 ## [Структура проекта](./docs/src.md)
 
-## Переменные окружения
-
-```env
-DEEPSEEK_BOT_TOKEN=your_telegram_bot_token
-DEEPSEEK_BOT_FUNCTION_SECRET=your_function_secret
-PIAPI_KEY=your_piapi_key
-DEEPSEEK_YOOKASSA_PROVIDER_TOKEN=your_yookassa_provider_token
-DEEPSEEK_YOOKASSA_PROVIDER_TOKEN_TEST=your_yookassa_provider_token_test
-```
+## [Переменные окружения](./.env.example)
 
 ## Бизнес правила
 
