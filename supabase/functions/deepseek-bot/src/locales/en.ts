@@ -149,6 +149,8 @@ export const en = {
     "📸 Unlimited access to photo meal analysis is also available.",
   onboarding_subscribe:
     "💫 Subscribe to premium for full access to all features, press /subscriptions",
+  onboarding_promo:
+    "🎟️ If you have a promo code, use the /set_promo command to activate it",
   onboarding_profile:
     "I also suggest setting up your profile using the /set_profile command",
 
