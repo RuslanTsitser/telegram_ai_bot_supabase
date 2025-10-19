@@ -1,6 +1,6 @@
-// Утилита для выбора оптимального PhotoSize: выбираем версию с max(width, height) ближайшим к 320 сверху.
-// Если есть несколько с размером ≥ 320, выбираем ту, у которой max(width, height) минимален.
-// Если ни одной ≥ 320 нет, выбираем самую большую из доступных.
+// Утилита для выбора оптимального PhotoSize: выбираем версию с max(width, height) ближайшим к 1024 сверху.
+// Если есть несколько с размером ≥ 1024, выбираем ту, у которой max(width, height) минимален.
+// Если ни одной ≥ 1024 нет, выбираем самую большую из доступных.
 export function selectOptimalPhoto(
   photos: Array<{ file_id: string; width: number; height: number }>,
 ) {
@@ -13,11 +13,11 @@ export function selectOptimalPhoto(
     size: Math.max(p.width, p.height),
   }));
 
-  // Фильтруем те, у которых size >= 320
-  const aboveThreshold = withSize.filter((p) => p.size >= 320);
+  // Фильтруем те, у которых size >= 1024
+  const aboveThreshold = withSize.filter((p) => p.size >= 1024);
 
   if (aboveThreshold.length > 0) {
-    // Из тех, что ≥ 320, берём с минимальным size
+    // Из тех, что ≥ 1024, берём с минимальным size
     aboveThreshold.sort((a, b) => a.size - b.size);
     console.log("result", aboveThreshold[0]);
     return {
@@ -27,7 +27,7 @@ export function selectOptimalPhoto(
     };
   }
 
-  // Если ни одного ≥ 320, выбираем максимальный по size
+  // Если ни одного ≥ 1024, выбираем максимальный по size
   withSize.sort((a, b) => b.size - a.size);
   console.log("result", withSize[0]);
   return {

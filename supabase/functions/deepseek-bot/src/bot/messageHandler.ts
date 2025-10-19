@@ -402,7 +402,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
       }
 
       const caption = ctx.message.caption || "";
-      // Выбираем PhotoSize с разрешением близким к 320×320
+      // Выбираем PhotoSize с разрешением близким к 1024×1024
       const photoSizes = ctx.message.photo.map((p) => ({
         file_id: p.file_id,
         width: p.width,
