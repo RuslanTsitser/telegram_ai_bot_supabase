@@ -1,11 +1,12 @@
 import { FoodAnalysis } from "../interfaces/FoodAnalysis.ts";
-import { foodImagePrompt } from "../prompts/foodImagePrompt.ts";
+import { getFoodImagePrompt } from "../prompts/foodImagePrompt.ts";
 import { getImageUrlFromTelegram } from "../telegram/getImageUrlFromTelegram.ts";
 
 export async function handleFoodImage(
   fileId: string | null,
   userText: string | null,
   botToken: string,
+  languageCode: string = "ru",
 ): Promise<FoodAnalysis> {
   try {
     console.log("handleFoodImage", fileId, userText, botToken);
@@ -41,7 +42,7 @@ export async function handleFoodImage(
       };
     }
 
-    const systemPrompt = foodImagePrompt;
+    const systemPrompt = getFoodImagePrompt(languageCode);
 
     const messages = [
       {

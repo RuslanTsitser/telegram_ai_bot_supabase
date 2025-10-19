@@ -415,6 +415,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         optimalPhoto.file_id,
         caption,
         config.token,
+        userLanguage,
       );
 
       const messageText = formatFoodAnalysisMessage(response);
@@ -502,6 +503,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         null,
         ctx.message.text,
         config.token,
+        userLanguage,
       );
 
       const messageText = formatFoodAnalysisMessage(response);
@@ -701,6 +703,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         optimalPhoto.file_id,
         caption,
         config.token,
+        _userLanguage,
       );
 
       const messageText = formatFoodAnalysisMessage(response);
@@ -750,6 +753,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         null,
         edited.text || "",
         config.token,
+        _userLanguage,
       );
 
       const messageText = formatFoodAnalysisMessage(response);
