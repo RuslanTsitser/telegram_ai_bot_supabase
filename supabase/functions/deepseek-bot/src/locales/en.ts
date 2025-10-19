@@ -92,6 +92,12 @@ export const en = {
   image_analysis_subscribe:
     "💎 Subscribe with /subscriptions command to get full access to all features.",
   access_check_error: "❌ Error checking access",
+  image_get_error: "Sorry, couldn't get the image.",
+  image_default_prompt:
+    "Analyze this food image and provide a detailed nutritional analysis.",
+  server_response_error: "Sorry, couldn't get a response from the server.",
+  response_processing_error:
+    "Sorry, an error occurred while processing the response.",
 
   // Text analysis
   text_analysis_limit_reached: "🚫 Daily analysis limit reached!",
@@ -117,6 +123,21 @@ export const en = {
   kg: "kg",
   g: "g",
   kcal: "kcal",
+
+  // Food analysis formatting
+  food_description_emoji: "🍽 ",
+  nutrition_title: "📊 Nutritional value:",
+  estimated_weight: "• Estimated weight: ",
+  calories: "• Calories: ",
+  protein: "• Protein: ",
+  fats: "• Fats: ",
+  saturated_fats: "  - Saturated: ",
+  carbs: "• Carbohydrates: ",
+  sugar: "  - Sugar: ",
+  fiber: "• Fiber: ",
+  nutrition_score: "⭐ Nutrition score: ",
+  nutrition_score_max: "/10",
+  recommendations: "💡 Recommendations:",
 
   // Onboarding
   onboarding_welcome: "👋 Hello! I'm a nutrition analysis bot.",

@@ -418,7 +418,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         userLanguage,
       );
 
-      const messageText = formatFoodAnalysisMessage(response);
+      const messageText = formatFoodAnalysisMessage(response, userLanguage);
 
       let sentMessage;
       if (chatType === "private") {
@@ -506,7 +506,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         userLanguage,
       );
 
-      const messageText = formatFoodAnalysisMessage(response);
+      const messageText = formatFoodAnalysisMessage(response, userLanguage);
 
       let sentMessage;
       if (chatType === "private") {
@@ -706,7 +706,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         _userLanguage,
       );
 
-      const messageText = formatFoodAnalysisMessage(response);
+      const messageText = formatFoodAnalysisMessage(response, _userLanguage);
 
       const { data } = await getBotMessageId(
         supabase,
@@ -756,7 +756,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         _userLanguage,
       );
 
-      const messageText = formatFoodAnalysisMessage(response);
+      const messageText = formatFoodAnalysisMessage(response, _userLanguage);
 
       const { data } = await getBotMessageId(
         supabase,

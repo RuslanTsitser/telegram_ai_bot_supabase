@@ -1,20 +1,28 @@
 import { FoodAnalysis } from "../interfaces/FoodAnalysis.ts";
+import { createI18n } from "../utils/i18n.ts";
 
-export function formatFoodAnalysisMessage(response: FoodAnalysis): string {
+export function formatFoodAnalysisMessage(
+  response: FoodAnalysis,
+  languageCode: string,
+): string {
   if (response.error) {
     return response.error;
   }
 
-  return `🍽 ${response.description}\n\n` +
-    `📊 Питательная ценность:\n` +
-    `• Примерный вес: ${response.mass} г\n` +
-    `• Калории: ${response.calories} ккал\n` +
-    `• Белки: ${response.protein} г\n` +
-    `• Жиры: ${response.fats} г\n` +
-    `  - Насыщенные: ${response.saturated_fats} г\n` +
-    `• Углеводы: ${response.carbs} г\n` +
-    `  - Сахар: ${response.sugar} г\n` +
-    `• Клетчатка: ${response.fiber} г\n\n` +
-    `⭐ Оценка питательности: ${response.nutrition_score}/10\n\n` +
-    `💡 Рекомендации:\n${response.recommendation}`;
+  const i18n = createI18n(languageCode);
+
+  return `${i18n.t("food_description_emoji")}${response.description}\n\n` +
+    `${i18n.t("nutrition_title")}\n` +
+    `${i18n.t("estimated_weight")}${response.mass} ${i18n.t("g")}\n` +
+    `${i18n.t("calories")}${response.calories} ${i18n.t("kcal")}\n` +
+    `${i18n.t("protein")}${response.protein} ${i18n.t("g")}\n` +
+    `${i18n.t("fats")}${response.fats} ${i18n.t("g")}\n` +
+    `${i18n.t("saturated_fats")}${response.saturated_fats} ${i18n.t("g")}\n` +
+    `${i18n.t("carbs")}${response.carbs} ${i18n.t("g")}\n` +
+    `${i18n.t("sugar")}${response.sugar} ${i18n.t("g")}\n` +
+    `${i18n.t("fiber")}${response.fiber} ${i18n.t("g")}\n\n` +
+    `${i18n.t("nutrition_score")}${response.nutrition_score}${
+      i18n.t("nutrition_score_max")
+    }\n\n` +
+    `${i18n.t("recommendations")}\n${response.recommendation}`;
 }

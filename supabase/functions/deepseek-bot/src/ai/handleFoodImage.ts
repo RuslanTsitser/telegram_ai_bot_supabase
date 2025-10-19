@@ -1,6 +1,7 @@
 import { FoodAnalysis } from "../interfaces/FoodAnalysis.ts";
 import { getFoodImagePrompt } from "../prompts/foodImagePrompt.ts";
 import { getImageUrlFromTelegram } from "../telegram/getImageUrlFromTelegram.ts";
+import { createI18n } from "../utils/i18n.ts";
 
 export async function handleFoodImage(
   fileId: string | null,
@@ -11,6 +12,7 @@ export async function handleFoodImage(
   try {
     console.log("handleFoodImage", fileId, userText, botToken);
 
+    const i18n = createI18n(languageCode);
     let imageContent = null;
 
     if (fileId) {
@@ -30,7 +32,7 @@ export async function handleFoodImage(
           fiber: 0,
           nutrition_score: 0,
           recommendation: "",
-          error: "Извините, не удалось получить изображение.",
+          error: i18n.t("image_get_error"),
         };
       }
 
@@ -54,8 +56,7 @@ export async function handleFoodImage(
         content: [
           {
             type: "text",
-            text: userText ||
-              "Проанализируй это изображение еды и предоставь детальный анализ питательной ценности.",
+            text: userText || i18n.t("image_default_prompt"),
           },
           ...(imageContent ? [imageContent] : []),
         ],
@@ -92,7 +93,7 @@ export async function handleFoodImage(
         fiber: 0,
         nutrition_score: 0,
         recommendation: "",
-        error: "Извините, не удалось получить ответ от сервера.",
+        error: i18n.t("server_response_error"),
       };
     }
 
@@ -117,11 +118,12 @@ export async function handleFoodImage(
         fiber: 0,
         nutrition_score: 0,
         recommendation: "",
-        error: "Извините, произошла ошибка при обработке ответа.",
+        error: i18n.t("response_processing_error"),
       };
     }
   } catch (error) {
     console.error("Error processing food image:", error);
+    const i18n = createI18n(languageCode);
     return {
       description: "",
       mass: 0,
@@ -134,7 +136,7 @@ export async function handleFoodImage(
       fiber: 0,
       nutrition_score: 0,
       recommendation: "",
-      error: "Извините, произошла ошибка при обработке ответа.",
+      error: i18n.t("response_processing_error"),
     };
   }
 }
