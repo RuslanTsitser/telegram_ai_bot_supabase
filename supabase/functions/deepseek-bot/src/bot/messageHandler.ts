@@ -34,6 +34,7 @@ import {
   FoodAnalysisData,
   MessageRelationship,
 } from "../interfaces/Database.ts";
+import { getImageUrlFromTelegram } from "../telegram/getImageUrlFromTelegram.ts";
 import {
   createSubscriptionInvoice,
   handleTrialSubscription,
@@ -449,6 +450,10 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
 
         // Store food analysis data
         if (!response.error) {
+          const imageUrl = await getImageUrlFromTelegram(
+            optimalPhoto.file_id,
+            config.token,
+          );
           const foodAnalysisData: FoodAnalysisData = {
             chat_id: ctx.chat.id,
             user_id: ctx.from.id,
@@ -467,6 +472,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
             recommendation: response.recommendation,
             has_image: true,
             image_file_id: optimalPhoto.file_id,
+            image_url: imageUrl || undefined,
             user_text: caption,
           };
           await insertFoodAnalysis(
@@ -724,6 +730,10 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
 
         // Update or insert food analysis data
         if (!response.error) {
+          const imageUrl = await getImageUrlFromTelegram(
+            optimalPhoto.file_id,
+            config.token,
+          );
           const foodAnalysisData: FoodAnalysisData = {
             chat_id: edited.chat.id,
             user_id: edited.from.id,
@@ -741,6 +751,7 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
             nutrition_score: response.nutrition_score,
             recommendation: response.recommendation,
             image_file_id: optimalPhoto.file_id,
+            image_url: imageUrl || undefined,
             user_text: caption,
             has_image: true,
           };

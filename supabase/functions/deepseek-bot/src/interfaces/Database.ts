@@ -25,6 +25,7 @@ export interface FoodAnalysisData {
   recommendation: string;
   has_image: boolean;
   image_file_id?: string;
+  image_url?: string;
   user_text: string;
 }
 
