@@ -5,11 +5,16 @@ interface UserStats {
   user_id: number;
   total_analyses: number;
   analyses_with_images: number;
+  avg_daily_calories: number | null;
+  avg_daily_protein: number | null;
+  avg_daily_carbs: number | null;
+  avg_daily_fats: number | null;
   avg_calories: number | null;
   avg_protein: number | null;
   avg_carbs: number | null;
   avg_fats: number | null;
   avg_nutrition_score: number | null;
+  active_days: number;
 }
 
 Deno.serve(async (req: Request) => {
@@ -50,11 +55,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get all analyses for the user
+    // Get all analyses for the user with created_at field
     const { data: analyses, error: analysesError } = await supabase
       .from("food_analysis")
       .select("*")
-      .eq("user_id", user_id);
+      .eq("user_id", user_id)
+      .order("created_at", { ascending: true });
 
     if (analysesError) {
       console.error("Error fetching user analyses:", analysesError);
@@ -78,11 +84,16 @@ Deno.serve(async (req: Request) => {
         user_id: user_id,
         total_analyses: 0,
         analyses_with_images: 0,
+        avg_daily_calories: null,
+        avg_daily_protein: null,
+        avg_daily_carbs: null,
+        avg_daily_fats: null,
         avg_calories: null,
         avg_protein: null,
         avg_carbs: null,
         avg_fats: null,
         avg_nutrition_score: null,
+        active_days: 0,
       };
 
       return new Response(
@@ -106,7 +117,100 @@ Deno.serve(async (req: Request) => {
       analysis.has_image
     ).length;
 
-    // Calculate averages for nutritional values
+    // Calculate unique days when user made analyses
+    const uniqueDays = new Set();
+    analyses.forEach((analysis) => {
+      if (analysis.created_at) {
+        const date = new Date(analysis.created_at).toDateString();
+        uniqueDays.add(date);
+      }
+    });
+    const activeDays = uniqueDays.size;
+
+    // Calculate daily totals for nutritional values
+    const dailyTotals: {
+      [key: string]: {
+        calories: number;
+        protein: number;
+        carbs: number;
+        fats: number;
+        count: number;
+      };
+    } = {};
+
+    analyses.forEach((analysis) => {
+      if (analysis.created_at) {
+        const date = new Date(analysis.created_at).toDateString();
+
+        if (!dailyTotals[date]) {
+          dailyTotals[date] = {
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fats: 0,
+            count: 0,
+          };
+        }
+
+        if (analysis.calories !== null && analysis.calories !== undefined) {
+          dailyTotals[date].calories += analysis.calories;
+        }
+        if (analysis.protein !== null && analysis.protein !== undefined) {
+          dailyTotals[date].protein += analysis.protein;
+        }
+        if (analysis.carbs !== null && analysis.carbs !== undefined) {
+          dailyTotals[date].carbs += analysis.carbs;
+        }
+        if (analysis.fats !== null && analysis.fats !== undefined) {
+          dailyTotals[date].fats += analysis.fats;
+        }
+        dailyTotals[date].count++;
+      }
+    });
+
+    // Calculate average daily values
+    const avgDailyCalories = activeDays > 0
+      ? Math.round(
+        (Object.values(dailyTotals).reduce(
+          (sum, day) => sum + day.calories,
+          0,
+        ) / activeDays) * 10,
+      ) / 10
+      : null;
+
+    const avgDailyProtein = activeDays > 0
+      ? Math.round(
+        (Object.values(dailyTotals).reduce((sum, day) => sum + day.protein, 0) /
+          activeDays) * 10,
+      ) / 10
+      : null;
+
+    const avgDailyCarbs = activeDays > 0
+      ? Math.round(
+        (Object.values(dailyTotals).reduce((sum, day) => sum + day.carbs, 0) /
+          activeDays) * 10,
+      ) / 10
+      : null;
+
+    const avgDailyFats = activeDays > 0
+      ? Math.round(
+        (Object.values(dailyTotals).reduce((sum, day) => sum + day.fats, 0) /
+          activeDays) * 10,
+      ) / 10
+      : null;
+
+    // Calculate average nutrition score (still per analysis, not daily)
+    const validNutritionScore = analyses.filter((a) =>
+      a.nutrition_score !== null && a.nutrition_score !== undefined
+    );
+    const avgNutritionScore = validNutritionScore.length > 0
+      ? Math.round(
+        (validNutritionScore.reduce((sum, a) => sum + a.nutrition_score, 0) /
+          validNutritionScore.length) * 10,
+      ) / 10
+      : null;
+
+    // Calculate regular averages for nutritional values (per analysis)
     const validCalories = analyses.filter((a) =>
       a.calories !== null && a.calories !== undefined
     );
@@ -118,9 +222,6 @@ Deno.serve(async (req: Request) => {
     );
     const validFats = analyses.filter((a) =>
       a.fats !== null && a.fats !== undefined
-    );
-    const validNutritionScore = analyses.filter((a) =>
-      a.nutrition_score !== null && a.nutrition_score !== undefined
     );
 
     const avgCalories = validCalories.length > 0
@@ -150,22 +251,20 @@ Deno.serve(async (req: Request) => {
       ) / 10
       : null;
 
-    const avgNutritionScore = validNutritionScore.length > 0
-      ? Math.round(
-        (validNutritionScore.reduce((sum, a) => sum + a.nutrition_score, 0) /
-          validNutritionScore.length) * 10,
-      ) / 10
-      : null;
-
     const userStats: UserStats = {
       user_id: user_id,
       total_analyses: totalAnalyses,
       analyses_with_images: analysesWithImages,
+      avg_daily_calories: avgDailyCalories,
+      avg_daily_protein: avgDailyProtein,
+      avg_daily_carbs: avgDailyCarbs,
+      avg_daily_fats: avgDailyFats,
       avg_calories: avgCalories,
       avg_protein: avgProtein,
       avg_carbs: avgCarbs,
       avg_fats: avgFats,
       avg_nutrition_score: avgNutritionScore,
+      active_days: activeDays,
     };
 
     return new Response(
