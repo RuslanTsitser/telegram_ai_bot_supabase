@@ -43,6 +43,7 @@ interface FoodAnalysisData {
   nutrition_score: number;
   recommendation: string;
   has_image: boolean;
+  image_url: string | null;
   created_at: string;
 }
 
@@ -120,7 +121,7 @@ Deno.serve(async (req: Request) => {
     let query = supabase
       .from("food_analysis")
       .select(
-        "id, description, mass, calories, protein, carbs, fats, nutrition_score, recommendation, has_image, created_at",
+        "id, description, mass, calories, protein, carbs, fats, nutrition_score, recommendation, has_image, image_url, created_at",
       )
       .eq("user_id", parseInt(telegramUserId))
       .order("created_at", { ascending: false });
