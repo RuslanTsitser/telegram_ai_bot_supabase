@@ -38,6 +38,7 @@
       "created_at": "2024-01-01T00:00:00Z",
       "last_activity": "2024-01-01T00:00:00Z",
       "trial_used": false,
+      "promo": "PROMO_CODE",
       "language": "ru"
     }
   ],

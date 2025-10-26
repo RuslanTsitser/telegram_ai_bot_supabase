@@ -12,6 +12,7 @@ interface User {
   created_at: string;
   last_activity: string | null;
   trial_used: boolean;
+  promo: string;
   language: string;
 }
 
@@ -122,6 +123,7 @@ Deno.serve(async (req: Request) => {
         created_at,
         last_activity,
         trial_used,
+        promo,
         language
       `)
       .order(sortBy, { ascending: sortOrder === "asc" })
