@@ -170,12 +170,79 @@
 }
 ```
 
+### 5. get-food-analyses
+
+**Эндпоинт:** `/functions/v1/get-food-analyses`
+
+**Описание:** Получает список анализов еды для конкретного пользователя по telegram_user_id с группировкой по периодам и пагинацией групп.
+
+**Параметры запроса:**
+
+- `telegram_user_id` (обязательно): ID пользователя в Telegram
+- `page` (опционально): номер страницы (по умолчанию 1)
+- `limit` (опционально): количество записей на страницу (по умолчанию 10)
+- `group_by` (опционально): группировка по периодам - "day" (по умолчанию), "week", "month"
+- `start_date` (опционально): начальная дата фильтрации (формат YYYY-MM-DD)
+- `end_date` (опционально): конечная дата фильтрации (формат YYYY-MM-DD)
+
+**Ответ (единый формат):**
+
+```json
+{
+  "success": true,
+  "count": 1,
+  "limit": 10,
+  "offset": 0,
+  "total_count": 25,
+  "total_pages": 3,
+  "current_page": 1,
+  "group_by": "day",
+  "grouped_data": [
+    {
+      "period": "2025-09-01",
+      "analyses": [
+        {
+          "id": "uuid",
+          "description": "Описание еды",
+          "mass": 350,
+          "calories": 500,
+          "protein": 25,
+          "carbs": 60,
+          "fats": 20,
+          "nutrition_score": 6,
+          "recommendation": "Рекомендация",
+          "has_image": true,
+          "created_at": "2025-09-01T07:57:58Z"
+        }
+      ],
+      "summary": {
+        "totalCalories": 500,
+        "totalProtein": 25,
+        "totalCarbs": 60,
+        "totalFats": 20,
+        "averageNutritionScore": 6,
+        "count": 1
+      }
+    }
+  ]
+}
+```
+
+**Примечания:**
+
+- **Всегда группировка**: данные всегда группируются по периодам (по умолчанию по дням)
+- **Пагинация по группам**: `limit` определяет количество групп на страницу, `page` - номер страницы групп
+- **Единый формат**: все данные находятся в `grouped_data`
+- Функция возвращает только необходимые поля для отображения списка анализов (оптимизированный набор данных)
+- Исключены технические поля: `chat_id`, `user_id`, `message_id`, `bot_id`, `image_file_id`, `user_text`, `sugar`, `saturated_fats`, `fiber`
+
 ## Использование
 
 **Важно:**
 
 - Все функции работают без авторизации и не требуют заголовков Authorization
 - Поддерживается CORS для запросов из браузера (Access-Control-Allow-Origin: *)
+- Функция `get-food-analyses` поддерживает CORS preflight запросы (OPTIONS)
 
 ### Развертывание функций
 
@@ -185,6 +252,7 @@ supabase functions deploy load-users
 supabase functions deploy load-analyses
 supabase functions deploy load-profiles
 supabase functions deploy load-stats
+supabase functions deploy get-food-analyses
 ```
 
 ### Примеры вызовов
@@ -205,6 +273,25 @@ const profiles = await profilesResponse.json();
 // Получить статистику
 const statsResponse = await fetch('https://your-project.supabase.co/functions/v1/load-stats');
 const stats = await statsResponse.json();
+
+// Получить анализы пользователя с группировкой по дням (по умолчанию)
+const userAnalysesResponse = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&page=1&limit=10');
+const userAnalyses = await userAnalysesResponse.json();
+// userAnalyses.grouped_data содержит сгруппированные по дням данные
+
+// Получить анализы пользователя с группировкой по неделям
+const groupedByWeekResponse = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&group_by=week');
+const groupedByWeek = await groupedByWeekResponse.json();
+// groupedByWeek.grouped_data содержит сгруппированные по неделям данные
+
+// Получить анализы пользователя с группировкой по месяцам
+const groupedByMonthResponse = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&group_by=month');
+const groupedByMonth = await groupedByMonthResponse.json();
+// groupedByMonth.grouped_data содержит сгруппированные по месяцам данные
+
+// Получить анализы пользователя за определенный период
+const filteredResponse = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&start_date=2025-08-01&end_date=2025-08-31');
+const filteredAnalyses = await filteredResponse.json();
 ```
 
 ## Обработка ошибок
@@ -273,3 +360,82 @@ const profilesByWeight = await fetch('https://your-project.supabase.co/functions
 // Комбинирование сортировки и пагинации
 const sortedPage = await fetch('https://your-project.supabase.co/functions/v1/load-users?limit=10&offset=0&sort_by=last_activity&sort_order=desc');
 ```
+
+## Специальные возможности get-food-analyses
+
+Функция `get-food-analyses` предоставляет уникальные возможности для работы с анализами еды конкретного пользователя:
+
+### Единый формат ответа
+
+Функция всегда возвращает единый формат ответа с группировкой:
+
+- **Всегда группировка**: данные всегда группируются по периодам (по умолчанию по дням)
+- **Единый формат**: все данные находятся в `grouped_data`
+- **Пагинация по группам**: работает по группам (дням/неделям/месяцам), а не по отдельным анализам
+
+### Группировка по периодам
+
+Функция поддерживает группировку анализов по трем периодам:
+
+- **day** - группировка по дням (формат: YYYY-MM-DD)
+- **week** - группировка по неделям (формат: YYYY-WW)  
+- **month** - группировка по месяцам (формат: YYYY-MM)
+
+### Сводная статистика
+
+При группировке каждая группа в `grouped_data` содержит сводную статистику:
+
+- `totalCalories` - общее количество калорий
+- `totalProtein` - общее количество белка
+- `totalCarbs` - общее количество углеводов
+- `totalFats` - общее количество жиров
+- `averageNutritionScore` - средний балл питательности
+- `count` - количество анализов в группе
+
+### Фильтрация по датам
+
+Поддерживается фильтрация анализов по датам:
+
+```javascript
+// Анализы за последний месяц
+const lastMonth = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&start_date=2025-08-01&end_date=2025-08-31');
+
+// Анализы за конкретный день
+const specificDay = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&start_date=2025-09-01&end_date=2025-09-01');
+```
+
+### Комбинирование параметров
+
+Можно комбинировать различные параметры:
+
+```javascript
+// Группировка по неделям за определенный период
+const weeklyStats = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&group_by=week&start_date=2025-08-01&end_date=2025-08-31');
+
+// Пагинация с фильтрацией по датам
+const paginatedFiltered = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&page=2&limit=5&start_date=2025-08-01&end_date=2025-08-31');
+```
+
+### Пагинация при группировке
+
+Функция всегда группирует данные, поэтому пагинация работает по **группам**, а не по отдельным анализам:
+
+```javascript
+// Первая страница групп (1 группа на страницу)
+const page1 = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&page=1&limit=1');
+// page1.grouped_data содержит 1 группу (например, анализы за 1 день)
+
+// Вторая страница групп
+const page2 = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&page=2&limit=1');
+// page2.grouped_data содержит следующую группу (анализы за другой день)
+
+// Несколько групп на страницу
+const multipleGroups = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&group_by=week&page=1&limit=3');
+// multipleGroups.grouped_data содержит до 3 групп (недель)
+
+// Группировка по месяцам с пагинацией
+const monthlyGroups = await fetch('https://your-project.supabase.co/functions/v1/get-food-analyses?telegram_user_id=123456789&group_by=month&page=1&limit=2');
+// monthlyGroups.grouped_data содержит до 2 групп (месяцев)
+```
+
+**Важно:** Параметр `limit` определяет количество **групп** на страницу, а не количество анализов.
