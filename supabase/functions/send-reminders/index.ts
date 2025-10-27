@@ -61,7 +61,7 @@ const MEAL_MESSAGES = {
     "🥘 Еда - это топливо для вашего тела. Время заправиться!",
   ],
   en: [
-    "🍽️ Time to eat! Your body needs energy. It's time to eat!",
+    "🍽️ Your body needs energy. It's time to eat!",
     "🥗 It's time to eat. Don't skip meals! It's important for metabolism.",
     "🍎 Balanced nutrition is the key to health. It's time to eat!",
     "🥘 Regular meals help maintain stable blood sugar levels. You already ate?",
