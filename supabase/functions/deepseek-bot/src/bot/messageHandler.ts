@@ -519,7 +519,10 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         sentMessage = await ctx.reply(messageText);
 
         // Добавляем информацию о лимитах для бесплатных пользователей
-        if (!userLimits.isPremium && userLimits.dailyTextAnalysesLeft > 0) {
+        if (
+          !userLimits.isPremium && userLimits.dailyTextAnalysesLeft > 0 &&
+          userLimits.dailyTextAnalysesLeft <= 1
+        ) {
           await ctx.reply(
             i18n.t("text_analysis_remaining_after", {
               count: userLimits.dailyTextAnalysesLeft,
