@@ -10,6 +10,7 @@ import {
 import { processSuccessfulPayment } from "../db/processSuccessfulPayment.ts";
 import {
   getSubscriptionPlanById,
+  getSubscriptionPlanByPromoCode,
   getSubscriptionPlans,
 } from "../db/subscriptions.ts";
 import {
@@ -36,6 +37,7 @@ import {
 } from "../interfaces/Database.ts";
 import { getImageUrlFromTelegram } from "../telegram/getImageUrlFromTelegram.ts";
 import {
+  activateTrialWithPromo,
   createSubscriptionInvoice,
   handleTrialSubscription,
 } from "../telegram/subscriptionHandlers.ts";
@@ -488,6 +490,36 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
       // Проверяем лимиты пользователя
       const userLimits = await checkUserLimits(ctx.from.id, supabase);
 
+      // Проверяем, является ли текст - промокодом
+      const plans = await getSubscriptionPlanByPromoCode(
+        supabase,
+        ctx.message.text,
+      );
+
+      if (plans && plans.length > 0) {
+        // активируем промо
+
+        const success = await updateUserPromo(
+          supabase,
+          ctx.from.id,
+          ctx.message.text,
+        );
+
+        if (success) {
+          await ctx.reply(
+            i18n.t("promo_code_updated", { code: ctx.message.text }),
+          );
+        } else {
+          await ctx.reply(i18n.t("promo_code_update_error"));
+        }
+
+        const trialPlan = plans.find((plan) => plan.price === 0);
+        if (trialPlan) {
+          await activateTrialWithPromo(ctx, trialPlan, supabase, i18n);
+        }
+        return;
+      }
+
       if (!userLimits.canAnalyzeText) {
         if (!userLimits.isPremium) {
           await ctx.reply(
@@ -633,9 +665,9 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
 
       if (plan.price === 0) {
         // Логика для пробного периода
-        await handleTrialSubscription(ctx, plan, supabase);
+        await handleTrialSubscription(ctx, plan, supabase, i18n);
       } else {
-        await createSubscriptionInvoice(ctx, plan, inTest, config);
+        await createSubscriptionInvoice(ctx, plan, inTest, config, i18n);
       }
     }
   });

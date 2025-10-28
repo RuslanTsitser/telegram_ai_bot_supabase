@@ -83,3 +83,21 @@ export async function getSubscriptionPlanById(
 
   return data;
 }
+
+export async function getSubscriptionPlanByPromoCode(
+  supabase: SupabaseClient,
+  promoCode: string,
+): Promise<SubscriptionPlan[] | null> {
+  const { data, error } = await supabase
+    .from("subscription_plans")
+    .select("*")
+    .eq("is_active", true)
+    .contains("available_promo_codes", [promoCode]);
+
+  if (error) {
+    console.error("Error checking promo code:", error);
+    return null;
+  }
+
+  return data;
+}

@@ -185,4 +185,17 @@ export const en = {
   onboarding_caption_stats: "Statistics screen",
   onboarding_caption_delete: "To delete a meal from history, just swipe left",
   onboarding_caption_profile: "Profile settings",
+
+  // Subscription handlers
+  subscription_check_user_error: "❌ Error checking user",
+  subscription_trial_already_used: "❌ Trial period already used",
+  subscription_trial_activation_error: "❌ Error activating trial period",
+  subscription_trial_activated: "✅ Trial period activated!",
+  subscription_trial_activated_message:
+    '🎉 Trial period "{planName}" activated!\n\nAvailable until: {date}\n\nNow you have full access to all features!',
+  subscription_invoice_created: "✅ Payment invoice created",
+  subscription_invoice_error: "❌ Error creating invoice",
+  subscription_trial_activation_error_reply: "❌ Error activating trial period",
+  subscription_trial_activated_reply: "✅ Trial period activated!",
+  subscription_days: ["day", "days", "days"],
 } as const;

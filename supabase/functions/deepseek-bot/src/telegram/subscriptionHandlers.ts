@@ -3,12 +3,14 @@ import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { BotConfig } from "../config/botConfig.ts";
 import { SubscriptionPlan } from "../interfaces/Database.ts";
 import { formatWithDeclension } from "../utils/declension.ts";
+import { I18n } from "../utils/i18n.ts";
 
 // Обработка пробного периода
 export async function handleTrialSubscription(
   ctx: Context,
   plan: SubscriptionPlan,
   supabase: SupabaseClient,
+  i18n: I18n,
 ) {
   const userId = ctx.from?.id;
   if (!userId) return;
@@ -21,12 +23,12 @@ export async function handleTrialSubscription(
     .single();
 
   if (error) {
-    await ctx.answerCallbackQuery("❌ Ошибка при проверке пользователя");
+    await ctx.answerCallbackQuery(i18n.t("subscription_check_user_error"));
     return;
   }
 
   if (user.trial_used) {
-    await ctx.answerCallbackQuery("❌ Пробный период уже использован");
+    await ctx.answerCallbackQuery(i18n.t("subscription_trial_already_used"));
     return;
   }
 
@@ -43,15 +45,20 @@ export async function handleTrialSubscription(
     .eq("telegram_user_id", userId);
 
   if (updateError) {
-    await ctx.answerCallbackQuery("❌ Ошибка при активации пробного периода");
+    await ctx.answerCallbackQuery(
+      i18n.t("subscription_trial_activation_error"),
+    );
     return;
   }
 
-  await ctx.answerCallbackQuery("✅ Пробный период активирован!");
+  await ctx.answerCallbackQuery(i18n.t("subscription_trial_activated"));
   await ctx.editMessageText(
-    `🎉 Пробный период "${plan.name}" активирован!\n\n` +
-      `Доступен до: ${trialEndDate.toLocaleDateString("ru-RU")}\n\n` +
-      `Теперь у вас есть полный доступ ко всем функциям!`,
+    i18n.t("subscription_trial_activated_message", {
+      planName: plan.name,
+      date: trialEndDate.toLocaleDateString(
+        i18n.getLanguage() === "en" ? "en-US" : "ru-RU",
+      ),
+    }),
   );
 }
 
@@ -61,6 +68,7 @@ export async function createSubscriptionInvoice(
   plan: SubscriptionPlan,
   test: boolean,
   botConfig: BotConfig,
+  i18n: I18n,
 ) {
   const userId = ctx.from?.id;
   if (!userId) return;
@@ -69,11 +77,13 @@ export async function createSubscriptionInvoice(
     // Создаем invoice с правильными параметрами согласно документации
     await ctx.api.sendInvoice(
       ctx.chat?.id!,
-      `Подписка: ${plan.name}`,
+      i18n.t("subscriptions_title") + ": " + plan.name,
       plan.description ||
-        `Подписка на ${
-          formatWithDeclension(plan.duration_days, ["день", "дня", "дней"])
-        }`,
+        i18n.t("subscriptions_title") + " " +
+          formatWithDeclension(
+            plan.duration_days,
+            i18n.t("subscription_days") as unknown as [string, string, string],
+          ),
       `subscription_${plan.id}_${userId}`,
       test
         ? botConfig.youKassaProviderTestToken
@@ -85,9 +95,55 @@ export async function createSubscriptionInvoice(
       }],
     );
 
-    await ctx.answerCallbackQuery("✅ Создан счет для оплаты");
+    await ctx.answerCallbackQuery(i18n.t("subscription_invoice_created"));
   } catch (error) {
     console.error("Error creating invoice:", error);
-    await ctx.answerCallbackQuery("❌ Ошибка при создании счета");
+    await ctx.answerCallbackQuery(i18n.t("subscription_invoice_error"));
   }
+}
+
+export async function activateTrialWithPromo(
+  ctx: Context,
+  plan: SubscriptionPlan,
+  supabase: SupabaseClient,
+  i18n: I18n,
+) {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  // Проверяем, использовал ли пользователь пробный период
+  const { data: user, error } = await supabase
+    .from("users")
+    .select("trial_used")
+    .eq("telegram_user_id", userId)
+    .single();
+
+  if (error) {
+    await ctx.reply(i18n.t("subscription_check_user_error"));
+    return;
+  }
+
+  if (user.trial_used) {
+    await ctx.reply(i18n.t("subscription_trial_already_used"));
+    return;
+  }
+
+  // Активируем пробный период
+  const trialEndDate = new Date();
+  trialEndDate.setDate(trialEndDate.getDate() + plan.duration_days);
+
+  const { error: updateError } = await supabase
+    .from("users")
+    .update({
+      trial_used: true,
+      premium_expires_at: trialEndDate.toISOString(),
+    })
+    .eq("telegram_user_id", userId);
+
+  if (updateError) {
+    await ctx.reply(i18n.t("subscription_trial_activation_error_reply"));
+    return;
+  }
+
+  await ctx.reply(i18n.t("subscription_trial_activated_reply"));
 }
