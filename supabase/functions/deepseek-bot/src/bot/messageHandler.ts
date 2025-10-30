@@ -45,6 +45,7 @@ import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts
 import { createI18n } from "../utils/i18n.ts";
 import { selectOptimalPhoto } from "../utils/selectOptimalPhoto.ts";
 import { onboarding } from "./onboarding.ts";
+import { onboardingSimple } from "./onboarding_simple.ts";
 
 // helper вынесен в ../telegram/subscriptionHandlers.ts
 
@@ -250,7 +251,7 @@ ${i18n.t("start_analysis")}
       if (message === "/start" && chatType === "private") {
         console.log("start message");
 
-        await onboarding(ctx, supabase);
+        await onboardingSimple(ctx, supabase);
 
         return;
       }

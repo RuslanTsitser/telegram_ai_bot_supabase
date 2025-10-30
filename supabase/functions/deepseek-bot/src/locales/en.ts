@@ -188,6 +188,11 @@ export const en = {
   onboarding_caption_delete: "To delete a meal from history, just swipe left",
   onboarding_caption_profile: "Profile settings",
 
+  // Onboarding simple (short)
+  onboarding_simple_line1:
+    "Ready to check your meal? Send a photo and/or a description — I'll instantly show calories and macros.",
+  onboarding_simple_help: "Need help? Type /help.",
+
   // Subscription handlers
   subscription_check_user_error: "❌ Error checking user",
   subscription_trial_already_used: "❌ Trial period already used",

@@ -195,6 +195,11 @@ export const ru = {
     "Для удаления блюда из истории достаточно просто свайпнуть влево",
   onboarding_caption_profile: "Настройки профиля",
 
+  // Onboarding simple (short)
+  onboarding_simple_line1:
+    "Готовы проверить своё блюдо? Пришлите фото и/или описание — я мгновенно покажу калории и БЖУ.",
+  onboarding_simple_help: "Нужна подсказка? Введите /help.",
+
   // Subscription handlers
   subscription_check_user_error: "❌ Ошибка при проверке пользователя",
   subscription_trial_already_used: "❌ Пробный период уже использован",
