@@ -91,6 +91,8 @@ export const en = {
     "🚫 Image analysis is only available for premium users!",
   image_analysis_subscribe:
     "💎 Subscribe with /subscriptions command to get full access to all features.",
+  image_analysis_limit_reached: "🚫 Daily image analysis limit reached!",
+  image_analysis_remaining: "📸 Image analyses left today: {count}",
   access_check_error: "❌ Error checking access",
   image_get_error: "Sorry, couldn't get the image.",
   image_default_prompt:

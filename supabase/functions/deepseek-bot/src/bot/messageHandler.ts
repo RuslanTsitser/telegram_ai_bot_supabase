@@ -382,9 +382,10 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
       if (!userLimits.canAnalyzeImage) {
         if (!userLimits.isPremium) {
           await ctx.reply(
-            i18n.t("text_analysis_limit_reached") + "\n\n" +
-              i18n.t("text_analysis_subscribe"),
+            i18n.t("image_analysis_limit_reached") + "\n\n" +
+              i18n.t("image_analysis_subscribe"),
           );
+          await replyWithAvailableSubscriptions(ctx, supabase, i18n);
           return;
         } else {
           await ctx.reply(i18n.t("access_check_error"));
