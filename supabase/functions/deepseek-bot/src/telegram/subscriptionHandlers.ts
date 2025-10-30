@@ -124,7 +124,6 @@ export async function activateTrialWithPromo(
   }
 
   if (user.trial_used) {
-    await ctx.reply(i18n.t("subscription_trial_already_used"));
     return;
   }
 
