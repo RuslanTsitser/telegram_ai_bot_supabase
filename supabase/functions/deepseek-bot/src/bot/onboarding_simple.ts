@@ -12,10 +12,20 @@ export async function onboardingSimple(
     userLanguage = await getUserLanguage(supabase, ctx.from.id);
   }
   const i18n = createI18n(userLanguage);
-
-  await ctx.reply(
-    `${i18n.t("onboarding_simple_line1")}
+  if (userLanguage === "ru") {
+    await ctx.replyWithPhoto(
+      "AgACAgIAAxkBAAIIJWkDdGwY9buW3LzcQmuxxf_zmra0AAKt9zEbGagYSAMKy2nrzFAeAQADAgADcwADNgQ",
+      {
+        caption: `${i18n.t("onboarding_simple_line1")}
 
 ${i18n.t("onboarding_simple_help")}`,
-  );
+      },
+    );
+  } else {
+    await ctx.reply(
+      `${i18n.t("onboarding_simple_line1")}
+    
+${i18n.t("onboarding_simple_help")}`,
+    );
+  }
 }
