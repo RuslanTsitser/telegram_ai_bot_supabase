@@ -521,13 +521,28 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
 
       if (!userLimits.canAnalyzeText) {
         if (!userLimits.isPremium) {
-          await ctx.reply(
-            i18n.t("text_analysis_limit_reached") + "\n\n" +
-              i18n.t("text_analysis_remaining", {
-                count: userLimits.dailyTextAnalysesLeft,
-              }) + "\n\n" +
-              i18n.t("text_analysis_subscribe"),
-          );
+          await ctx.reply(i18n.t("text_analysis_limit_reached"));
+          // Сразу показываем доступные подписки
+          const plans = await getSubscriptionPlans(supabase, ctx.from.id);
+
+          if (!plans) {
+            await ctx.reply(i18n.t("text_analysis_subscribe"));
+            return;
+          }
+
+          const subscriptionMessage = i18n.t("subscriptions_title") + "\n\n";
+
+          // Создаем inline-кнопки для каждого тарифа
+          const keyboard = {
+            inline_keyboard: plans.map((plan) => [{
+              text: plan.price === 0
+                ? `🆓 ${plan.name}`
+                : `💳 ${plan.name} за ${plan.price}₽`,
+              callback_data: `subscription_${plan.id}`,
+            }]),
+          };
+
+          await ctx.reply(subscriptionMessage, { reply_markup: keyboard });
           return;
         } else {
           await ctx.reply(i18n.t("access_check_error"));
