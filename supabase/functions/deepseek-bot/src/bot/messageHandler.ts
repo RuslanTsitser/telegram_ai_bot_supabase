@@ -375,7 +375,6 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
       if (message === "/set_promo" && chatType === "private") {
         console.log("set_promo command");
         await ctx.reply(i18n.t("enter_promo_code"));
-        await upsertUserSession(supabase, ctx.from.id, "waiting_for_promo");
         return;
       }
     }
