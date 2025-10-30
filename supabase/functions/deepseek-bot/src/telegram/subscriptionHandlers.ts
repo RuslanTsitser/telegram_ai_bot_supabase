@@ -1,6 +1,7 @@
 import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { BotConfig } from "../config/botConfig.ts";
+import { getSubscriptionPlans } from "../db/subscriptions.ts";
 import { SubscriptionPlan } from "../interfaces/Database.ts";
 import { formatWithDeclension } from "../utils/declension.ts";
 import { I18n } from "../utils/i18n.ts";
@@ -145,4 +146,35 @@ export async function activateTrialWithPromo(
   }
 
   await ctx.reply(i18n.t("subscription_trial_activated_reply"));
+}
+
+// Унифицированная отправка доступных подписок с инлайн-кнопками
+export async function replyWithAvailableSubscriptions(
+  ctx: Context,
+  supabase: SupabaseClient,
+  i18n: I18n,
+  inTest = false,
+): Promise<boolean> {
+  const userId = ctx.from?.id;
+  if (!userId) return false;
+
+  const plans = await getSubscriptionPlans(supabase, userId);
+  if (!plans || plans.length === 0) return false;
+
+  const subscriptionMessage = i18n.t("subscriptions_title") + "\n\n";
+
+  // Создаем inline-кнопки для каждого тарифа
+  const keyboard = {
+    inline_keyboard: plans.map((plan) => [{
+      text: plan.price === 0
+        ? `🆓 ${plan.name}`
+        : `💳 ${plan.name} за ${plan.price}₽`,
+      callback_data: inTest
+        ? `subscription_test_${plan.id}`
+        : `subscription_${plan.id}`,
+    }]),
+  };
+
+  await ctx.reply(subscriptionMessage, { reply_markup: keyboard });
+  return true;
 }

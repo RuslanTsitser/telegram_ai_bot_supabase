@@ -11,7 +11,6 @@ import { processSuccessfulPayment } from "../db/processSuccessfulPayment.ts";
 import {
   getSubscriptionPlanById,
   getSubscriptionPlanByPromoCode,
-  getSubscriptionPlans,
 } from "../db/subscriptions.ts";
 import {
   getUserByTelegramId,
@@ -40,11 +39,14 @@ import {
   activateTrialWithPromo,
   createSubscriptionInvoice,
   handleTrialSubscription,
+  replyWithAvailableSubscriptions,
 } from "../telegram/subscriptionHandlers.ts";
 import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
 import { createI18n } from "../utils/i18n.ts";
 import { selectOptimalPhoto } from "../utils/selectOptimalPhoto.ts";
 import { onboarding } from "./onboarding.ts";
+
+// helper вынесен в ../telegram/subscriptionHandlers.ts
 
 export function setupBotHandlers(
   bot: Bot,
@@ -303,28 +305,15 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
         console.log("subscriptions command");
         const inTest = message === "/subscriptions_test";
 
-        const plans = await getSubscriptionPlans(supabase, ctx.from.id);
-
-        if (!plans) {
+        const ok = await replyWithAvailableSubscriptions(
+          ctx,
+          supabase,
+          i18n,
+          inTest,
+        );
+        if (!ok) {
           await ctx.reply(i18n.t("error"));
-          return;
         }
-
-        const subscriptionMessage = i18n.t("subscriptions_title") + "\n\n";
-
-        // Создаем inline кнопки для каждого тарифа
-        const keyboard = {
-          inline_keyboard: plans?.map((plan) => [{
-            text: plan.price === 0
-              ? `🆓 ${plan.name}`
-              : `💳 ${plan.name} за ${plan.price}₽`,
-            callback_data: inTest
-              ? `subscription_test_${plan.id}`
-              : `subscription_${plan.id}`,
-          }]) || [],
-        };
-
-        await ctx.reply(subscriptionMessage, { reply_markup: keyboard });
         return;
       }
 
@@ -522,27 +511,14 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
       if (!userLimits.canAnalyzeText) {
         if (!userLimits.isPremium) {
           await ctx.reply(i18n.t("text_analysis_limit_reached"));
-          // Сразу показываем доступные подписки
-          const plans = await getSubscriptionPlans(supabase, ctx.from.id);
-
-          if (!plans) {
+          const ok = await replyWithAvailableSubscriptions(
+            ctx,
+            supabase,
+            i18n,
+          );
+          if (!ok) {
             await ctx.reply(i18n.t("text_analysis_subscribe"));
-            return;
           }
-
-          const subscriptionMessage = i18n.t("subscriptions_title") + "\n\n";
-
-          // Создаем inline-кнопки для каждого тарифа
-          const keyboard = {
-            inline_keyboard: plans.map((plan) => [{
-              text: plan.price === 0
-                ? `🆓 ${plan.name}`
-                : `💳 ${plan.name} за ${plan.price}₽`,
-              callback_data: `subscription_${plan.id}`,
-            }]),
-          };
-
-          await ctx.reply(subscriptionMessage, { reply_markup: keyboard });
           return;
         } else {
           await ctx.reply(i18n.t("access_check_error"));
@@ -563,19 +539,6 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
       let sentMessage;
       if (chatType === "private") {
         sentMessage = await ctx.reply(messageText);
-
-        // Добавляем информацию о лимитах для бесплатных пользователей
-        if (
-          !userLimits.isPremium && userLimits.dailyTextAnalysesLeft > 0 &&
-          userLimits.dailyTextAnalysesLeft <= 1
-        ) {
-          await ctx.reply(
-            i18n.t("text_analysis_remaining_after", {
-              count: userLimits.dailyTextAnalysesLeft,
-            }) + "\n\n" +
-              i18n.t("text_analysis_subscribe_after"),
-          );
-        }
       }
 
       console.log("sentMessage food text", sentMessage);
