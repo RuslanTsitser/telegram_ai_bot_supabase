@@ -4,6 +4,7 @@ export interface UserLimits {
   canAnalyzeImage: boolean;
   canAnalyzeText: boolean;
   dailyTextAnalysesLeft: number;
+  dailyImageAnalysesLeft: number;
   isPremium: boolean;
 }
 
@@ -24,6 +25,7 @@ export async function checkUserLimits(
         canAnalyzeImage: false,
         canAnalyzeText: false,
         dailyTextAnalysesLeft: 0,
+        dailyImageAnalysesLeft: 0,
         isPremium: false,
       };
     }
@@ -39,6 +41,7 @@ export async function checkUserLimits(
         canAnalyzeImage: true,
         canAnalyzeText: true,
         dailyTextAnalysesLeft: -1, // -1 означает без ограничений
+        dailyImageAnalysesLeft: -1,
         isPremium: true,
       };
     }
@@ -46,31 +49,62 @@ export async function checkUserLimits(
     // Для бесплатных пользователей проверяем лимиты
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
-    // Считаем анализы за сегодня
-    const { data: todayAnalyses, error: countError } = await supabase
-      .from("food_analysis")
-      .select("id", { count: "exact" })
-      .eq("user_id", userId)
-      .gte("created_at", `${today}T00:00:00.000Z`)
-      .lt("created_at", `${today}T23:59:59.999Z`);
+    // Считаем раздельно анализы за сегодня: текст и изображения
+    const [
+      { count: textCount, error: textError },
+      { count: imageCount, error: imageError },
+    ] = await Promise.all([
+      supabase
+        .from("food_analysis")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("has_image", false)
+        .gte("created_at", `${today}T00:00:00.000Z`)
+        .lt("created_at", `${today}T23:59:59.999Z`),
+      supabase
+        .from("food_analysis")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("has_image", true)
+        .gte("created_at", `${today}T00:00:00.000Z`)
+        .lt("created_at", `${today}T23:59:59.999Z`),
+    ]);
 
-    if (countError) {
-      console.error("Error counting daily analyses:", countError);
+    if (textError || imageError) {
+      console.error("Error counting daily analyses:", {
+        textError,
+        imageError,
+      });
       return {
         canAnalyzeImage: false,
         canAnalyzeText: false,
         dailyTextAnalysesLeft: 0,
+        dailyImageAnalysesLeft: 0,
         isPremium: false,
       };
     }
 
-    const dailyCount = todayAnalyses?.length || 0;
-    const dailyTextAnalysesLeft = Math.max(0, 5 - dailyCount);
+    const dailyTextCount = textCount || 0;
+    const dailyImageCount = imageCount || 0;
+
+    // Квоты для бесплатных пользователей
+    const FREE_TEXT_DAILY_LIMIT = 5;
+    const FREE_IMAGE_DAILY_LIMIT = 1;
+
+    const dailyTextAnalysesLeft = Math.max(
+      0,
+      FREE_TEXT_DAILY_LIMIT - dailyTextCount,
+    );
+    const dailyImageAnalysesLeft = Math.max(
+      0,
+      FREE_IMAGE_DAILY_LIMIT - dailyImageCount,
+    );
 
     return {
-      canAnalyzeImage: false, // Бесплатные пользователи не могут анализировать изображения
+      canAnalyzeImage: dailyImageAnalysesLeft > 0,
       canAnalyzeText: dailyTextAnalysesLeft > 0,
       dailyTextAnalysesLeft,
+      dailyImageAnalysesLeft,
       isPremium: false,
     };
   } catch (error) {
@@ -79,6 +113,7 @@ export async function checkUserLimits(
       canAnalyzeImage: false,
       canAnalyzeText: false,
       dailyTextAnalysesLeft: 0,
+      dailyImageAnalysesLeft: 0,
       isPremium: false,
     };
   }
