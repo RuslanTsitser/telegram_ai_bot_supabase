@@ -55,7 +55,43 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get all analyses for the user with created_at field
+    // Get counts using count queries
+    const [
+      { count: totalCount, error: totalCountError },
+      { count: imagesCount, error: imagesCountError },
+    ] = await Promise.all([
+      supabase
+        .from("food_analysis")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user_id),
+      supabase
+        .from("food_analysis")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user_id)
+        .eq("has_image", true),
+    ]);
+
+    if (totalCountError || imagesCountError) {
+      console.error(
+        "Error fetching counts:",
+        totalCountError || imagesCountError,
+      );
+      return new Response(
+        JSON.stringify({
+          error: "Failed to fetch counts",
+          details: (totalCountError || imagesCountError)?.message,
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        },
+      );
+    }
+
+    // Get analyses for average calculations (one query, up to 1000 records)
     const { data: analyses, error: analysesError } = await supabase
       .from("food_analysis")
       .select("*")
@@ -112,10 +148,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // Calculate statistics
-    const totalAnalyses = analyses.length;
-    const analysesWithImages = analyses.filter((analysis) =>
-      analysis.has_image
-    ).length;
+    const totalAnalyses = totalCount || 0;
+    const analysesWithImages = imagesCount || 0;
 
     // Calculate unique days when user made analyses
     const uniqueDays = new Set();
