@@ -14,6 +14,7 @@ interface User {
   trial_used: boolean;
   promo: string;
   language: string;
+  traffic_source: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -124,7 +125,8 @@ Deno.serve(async (req: Request) => {
         last_activity,
         trial_used,
         promo,
-        language
+        language,
+        traffic_source
       `)
       .order(sortBy, { ascending: sortOrder === "asc" })
       .range(offset, offset + limit - 1);

@@ -54,7 +54,8 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-users?limit=50&o
       "last_activity": "2024-01-20T15:45:00Z",
       "trial_used": true,
       "promo": "WELCOME2024",
-      "language": "ru"
+      "language": "ru",
+      "traffic_source": "channel_name"
     }
   ],
   "count": 50,
@@ -84,6 +85,7 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-users?limit=50&o
 | `trial_used` | boolean | Использован ли пробный период |
 | `promo` | string | Использованный промо-код |
 | `language` | string | Язык интерфейса (ru/en) |
+| `traffic_source` | string | Источник трафика (откуда пришел пользователь, например channel_name из команды /start). Может быть null |
 
 ## Статусы премиум
 
