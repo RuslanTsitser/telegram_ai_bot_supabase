@@ -1,1 +1,5 @@
-supabase functions deploy deepseek-bot --project-ref cmztehabpooymgggejgg --no-verify-jwt
+#!/bin/bash
+
+function=$1
+
+supabase functions deploy $function --project-ref cmztehabpooymgggejgg --no-verify-jwt
