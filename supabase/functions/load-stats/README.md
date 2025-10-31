@@ -29,7 +29,12 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-stats" \
   "data": {
     "total_users": 1250,
     "total_analyses": 15680,
-    "avg_score": 7.2
+    "avg_score": 7.2,
+    "traffic_source": [
+      { "source": null, "count": 1050 },
+      { "source": "channel_name", "count": 150 },
+      { "source": "other_source", "count": 50 }
+    ]
   }
 }
 ```
@@ -41,6 +46,7 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-stats" \
 | `total_users` | number | Общее количество пользователей в системе |
 | `total_analyses` | number | Общее количество анализов еды |
 | `avg_score` | number | Средняя оценка питательности (округлено до 1 знака) |
+| `traffic_source` | array | Распределение пользователей по источникам трафика. Массив объектов с полями `source` (string \| null) и `count` (number). Отсортировано по количеству пользователей по убыванию |
 
 ## Особенности расчета
 
@@ -57,6 +63,15 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-stats" \
 - Исключаются записи с `null` значениями
 - Округляется до 1 знака после запятой
 - Может быть `null` если нет анализов с оценками
+
+### Распределение по источникам трафика
+- Группирует пользователей по полю `traffic_source` из таблицы `users`
+- Подсчитывает количество пользователей для каждого источника
+- Источники с `null` значением также включены в статистику
+- Результаты отсортированы по количеству пользователей по убыванию
+- Каждый элемент массива содержит:
+  - `source` - название источника трафика (может быть `null`)
+  - `count` - количество пользователей из этого источника
 
 ## Коды ошибок
 

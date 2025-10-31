@@ -1,10 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
+interface TrafficSourceStat {
+  source: string | null;
+  count: number;
+}
+
 interface Stats {
   total_users: number;
   total_analyses: number;
   avg_score: number | null;
+  traffic_source: TrafficSourceStat[];
 }
 
 Deno.serve(async (req: Request) => {
@@ -104,10 +110,50 @@ Deno.serve(async (req: Request) => {
       avgScore = Math.round((sum / avgScoreData.length) * 10) / 10; // Round to 1 decimal place
     }
 
+    // Get traffic source statistics
+    const { data: trafficSourceData, error: trafficSourceError } =
+      await supabase
+        .from("users")
+        .select("traffic_source");
+
+    if (trafficSourceError) {
+      console.error("Error fetching traffic source data:", trafficSourceError);
+      return new Response(
+        JSON.stringify({
+          error: "Failed to fetch traffic source data",
+          details: trafficSourceError.message,
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        },
+      );
+    }
+
+    // Group by traffic_source
+    const trafficSourceMap = new Map<string | null, number>();
+    if (trafficSourceData) {
+      trafficSourceData.forEach((user) => {
+        const source = user.traffic_source ?? null;
+        trafficSourceMap.set(source, (trafficSourceMap.get(source) || 0) + 1);
+      });
+    }
+
+    // Convert to array and sort by count descending
+    const trafficSource: TrafficSourceStat[] = Array.from(
+      trafficSourceMap.entries(),
+    )
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count);
+
     const stats: Stats = {
       total_users: totalUsers || 0,
       total_analyses: totalAnalyses || 0,
       avg_score: avgScore,
+      traffic_source: trafficSource,
     };
 
     return new Response(
