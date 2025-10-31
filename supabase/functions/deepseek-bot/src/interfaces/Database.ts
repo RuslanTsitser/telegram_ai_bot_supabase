@@ -54,6 +54,7 @@ export interface DbUser {
   trial_used: boolean;
   promo: string;
   language: string;
+  traffic_source: string | null;
 }
 
 export interface UserProfile {

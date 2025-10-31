@@ -17,6 +17,7 @@ import {
   getUserLanguage,
   updateUserLanguage,
   updateUserPromo,
+  updateUserTrafficSource,
   upsertUser,
 } from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
@@ -248,8 +249,18 @@ ${i18n.t("start_analysis")}
     if (ctx.message.text) {
       const message = ctx.message.text;
 
-      if (message === "/start" && chatType === "private") {
+      if (message.startsWith("/start") && chatType === "private") {
         console.log("start message");
+
+        // Извлекаем параметр из команды /start (например, /start channel_name)
+        const startParts = message.trim().split(/\s+/);
+        if (startParts.length > 1) {
+          const trafficSource = startParts[1];
+          console.log("traffic_source из команды /start:", trafficSource);
+
+          // Сохраняем traffic_source (только если поле еще не заполнено)
+          await updateUserTrafficSource(supabase, ctx.from.id, trafficSource);
+        }
 
         await onboardingSimple(ctx, supabase);
 

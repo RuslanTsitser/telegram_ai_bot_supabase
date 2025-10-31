@@ -106,3 +106,35 @@ export async function updateUserPromo(
 
   return true;
 }
+
+export async function updateUserTrafficSource(
+  supabase: SupabaseClient,
+  userId: number,
+  trafficSource: string,
+): Promise<boolean> {
+  // Проверяем, существует ли пользователь и не заполнено ли уже поле traffic_source
+  const existingUser = await getUserByTelegramId(supabase, userId);
+
+  if (!existingUser) {
+    console.error("Пользователь не найден для обновления traffic_source");
+    return false;
+  }
+
+  // Обновляем только если поле еще не заполнено
+  if (existingUser.traffic_source) {
+    console.log("traffic_source уже заполнен, пропускаем обновление");
+    return true;
+  }
+
+  const { error } = await supabase
+    .from("users")
+    .update({ traffic_source: trafficSource })
+    .eq("telegram_user_id", userId);
+
+  if (error) {
+    console.error("Ошибка обновления traffic_source пользователя:", error);
+    return false;
+  }
+
+  return true;
+}
