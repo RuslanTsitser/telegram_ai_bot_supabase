@@ -18,14 +18,18 @@ export async function onboardingSimple(
       {
         caption: `${i18n.t("onboarding_simple_line1")}
 
-${i18n.t("onboarding_simple_help")}`,
+${i18n.t("onboarding_simple_help")}
+
+${i18n.t("onboarding_simple_promo")}`,
       },
     );
   } else {
     await ctx.reply(
       `${i18n.t("onboarding_simple_line1")}
     
-${i18n.t("onboarding_simple_help")}`,
+${i18n.t("onboarding_simple_help")}
+
+${i18n.t("onboarding_simple_promo")}`,
     );
   }
 }

@@ -192,7 +192,8 @@ export const en = {
   onboarding_simple_line1:
     "Ready to check your meal? Send a photo and/or a description — I'll instantly show calories and macros.",
   onboarding_simple_help: "Need help? Type /help.",
-
+  onboarding_simple_promo:
+    "If you have a promo code — send it to the bot, and premium access will be activated",
   // Subscription handlers
   subscription_check_user_error: "❌ Error checking user",
   subscription_trial_already_used: "❌ Trial period already used",

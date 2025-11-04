@@ -199,7 +199,8 @@ export const ru = {
   onboarding_simple_line1:
     "Готовы проверить своё блюдо? Пришлите фото и/или описание — я мгновенно покажу калории и БЖУ.",
   onboarding_simple_help: "Нужна подсказка? Введите /help.",
-
+  onboarding_simple_promo:
+    "Если у вас есть промокод — отправьте его сообщением боту, и premium доступ будет активирован",
   // Subscription handlers
   subscription_check_user_error: "❌ Ошибка при проверке пользователя",
   subscription_trial_already_used: "❌ Пробный период уже использован",
