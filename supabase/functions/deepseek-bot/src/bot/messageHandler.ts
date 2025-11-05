@@ -2,44 +2,29 @@ import { Bot } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleFoodImage } from "../ai/handleFoodImage.ts";
 import { BotConfig } from "../config/botConfig.ts";
-import { insertFoodAnalysis, upsertFoodAnalysis } from "../db/foodAnalysis.ts";
-import {
-  getBotMessageId,
-  insertMessageRelationship,
-} from "../db/messageRelationships.ts";
+import { upsertFoodAnalysis } from "../db/foodAnalysis.ts";
+import { getBotMessageId } from "../db/messageRelationships.ts";
 import { processSuccessfulPayment } from "../db/processSuccessfulPayment.ts";
-import {
-  getSubscriptionPlanById,
-  getSubscriptionPlanByPromoCode,
-} from "../db/subscriptions.ts";
+import { getSubscriptionPlanById } from "../db/subscriptions.ts";
 import {
   getUserByTelegramId,
   getUserLanguage,
   updateUserLanguage,
-  updateUserPromo,
-  updateUserTrafficSource,
   upsertUser,
 } from "../db/upsertUser.ts";
-import { checkUserLimits } from "../db/userLimits.ts";
-import { getUserCalculations, getUserProfile } from "../db/userProfile.ts";
-import { upsertUserSession } from "../db/userSessions.ts";
-import {
-  FoodAnalysisData,
-  MessageRelationship,
-} from "../interfaces/Database.ts";
+import { FoodAnalysisData } from "../interfaces/Database.ts";
 import { getImageUrlFromTelegram } from "../telegram/getImageUrlFromTelegram.ts";
 import {
-  activateTrialWithPromo,
   createSubscriptionInvoice,
   handleTrialSubscription,
-  replyWithAvailableSubscriptions,
 } from "../telegram/subscriptionHandlers.ts";
 import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
 import { createI18n } from "../utils/i18n.ts";
 import { selectOptimalPhoto } from "../utils/selectOptimalPhoto.ts";
+import { handleCommand } from "./handleCommands.ts";
+import { handleFoodImageAnalysis } from "./handleFoodImageAnalysis.ts";
+import { handleFoodTextAnalysis } from "./handleFoodTextAnalysis.ts";
 import { handleUserSession } from "./handleUserSessions.ts";
-import { onboarding } from "./onboarding.ts";
-import { onboardingSimple } from "./onboarding_simple.ts";
 
 // helper вынесен в ../telegram/subscriptionHandlers.ts
 
@@ -48,6 +33,9 @@ export function setupBotHandlers(
   config: BotConfig,
   supabase: SupabaseClient,
 ) {
+  // ============================================================================
+  // ОБРАБОТЧИК ОБЫЧНЫХ СООБЩЕНИЙ
+  // ============================================================================
   bot.on("message", async (ctx) => {
     const chatType = ctx.message.chat.type;
     console.log(`${config.id} - ${chatType} message`, ctx.message.chat.id);
@@ -72,7 +60,9 @@ export function setupBotHandlers(
       return;
     }
 
-    // Handle successful payment
+    // ----------------------------------------------------------------------------
+    // ОБРАБОТКА ПЛАТЕЖЕЙ
+    // ----------------------------------------------------------------------------
     if (ctx.message.successful_payment) {
       console.log("successful_payment received");
 
@@ -161,7 +151,9 @@ export function setupBotHandlers(
     }
   });
 
-  // Обработчик для inline кнопок подписок
+  // ============================================================================
+  // ОБРАБОТЧИК CALLBACK QUERY (INLINE КНОПКИ)
+  // ============================================================================
   bot.on("callback_query", async (ctx) => {
     // Получаем язык пользователя для callback обработчиков
     const userLanguage = await getUserLanguage(supabase, ctx.from.id);
@@ -217,7 +209,9 @@ export function setupBotHandlers(
     }
   });
 
-  // Webhook для проверки перед оплатой
+  // ============================================================================
+  // ОБРАБОТЧИК PRE-CHECKOUT QUERY (ПРОВЕРКА ПЕРЕД ОПЛАТОЙ)
+  // ============================================================================
   bot.on("pre_checkout_query", async (ctx) => {
     console.log("pre_checkout_query received");
 
@@ -263,7 +257,9 @@ export function setupBotHandlers(
     }
   });
 
-  // Обработчик для редактированных сообщений
+  // ============================================================================
+  // ОБРАБОТЧИК РЕДАКТИРОВАННЫХ СООБЩЕНИЙ
+  // ============================================================================
   bot.on("edited_message", async (ctx) => {
     const edited = ctx.editedMessage;
     if (!edited) return;
