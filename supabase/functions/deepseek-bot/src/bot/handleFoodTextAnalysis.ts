@@ -1,0 +1,150 @@
+import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { handleFoodImage } from "../ai/handleFoodImage.ts";
+import { BotConfig } from "../config/botConfig.ts";
+import { insertFoodAnalysis } from "../db/foodAnalysis.ts";
+import { insertMessageRelationship } from "../db/messageRelationships.ts";
+import { getSubscriptionPlanByPromoCode } from "../db/subscriptions.ts";
+import { updateUserPromo } from "../db/upsertUser.ts";
+import { checkUserLimits } from "../db/userLimits.ts";
+import {
+  FoodAnalysisData,
+  MessageRelationship,
+} from "../interfaces/Database.ts";
+import {
+  activateTrialWithPromo,
+  replyWithAvailableSubscriptions,
+} from "../telegram/subscriptionHandlers.ts";
+import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
+import { I18n } from "../utils/i18n.ts";
+
+export async function handleFoodTextAnalysis(
+  ctx: Context,
+  config: BotConfig,
+  supabase: SupabaseClient,
+  i18n: I18n,
+  userLanguage: string,
+  chatType: string,
+): Promise<boolean> {
+  // Проверка наличия сообщения, текста, пользователя и чата
+  if (!ctx.message || !ctx.message.text || !ctx.from || !ctx.chat) {
+    return false;
+  }
+
+  // Проверяем лимиты пользователя
+  const userLimits = await checkUserLimits(ctx.from.id, supabase);
+
+  // Проверяем, является ли текст - промокодом
+  const plans = await getSubscriptionPlanByPromoCode(
+    supabase,
+    ctx.message.text,
+  );
+
+  if (plans && plans.length > 0) {
+    // активируем промо
+    const success = await updateUserPromo(
+      supabase,
+      ctx.from.id,
+      ctx.message.text,
+    );
+
+    if (success) {
+      await ctx.reply(
+        i18n.t("promo_code_updated", { code: ctx.message.text }),
+      );
+    } else {
+      await ctx.reply(i18n.t("promo_code_update_error"));
+    }
+
+    const trialPlan = plans.find((plan) => plan.price === 0);
+    if (trialPlan) {
+      await activateTrialWithPromo(ctx, trialPlan, supabase, i18n);
+    }
+    return true;
+  }
+
+  if (!userLimits.canAnalyzeText) {
+    if (!userLimits.isPremium) {
+      await ctx.reply(i18n.t("text_analysis_limit_reached"));
+      const ok = await replyWithAvailableSubscriptions(
+        ctx,
+        supabase,
+        i18n,
+      );
+      if (!ok) {
+        await ctx.reply(i18n.t("text_analysis_subscribe"));
+      }
+      return true;
+    } else {
+      await ctx.reply(i18n.t("access_check_error"));
+      return true;
+    }
+  }
+
+  console.log("received food text for analysis", chatType);
+  const response = await handleFoodImage(
+    null,
+    ctx.message.text,
+    config.token,
+    userLanguage,
+  );
+
+  const messageText = formatFoodAnalysisMessage(response, userLanguage);
+
+  let sentMessage;
+  if (chatType === "private") {
+    sentMessage = await ctx.reply(messageText);
+  }
+
+  console.log("sentMessage food text", sentMessage);
+
+  // Store the relationship in Supabase
+  if (sentMessage) {
+    // Store message relationship
+    const relationship: MessageRelationship = {
+      user_message_id: ctx.message.message_id,
+      bot_message_id: sentMessage.message_id,
+      chat_id: ctx.chat.id,
+      bot_id: config.id,
+    };
+    const { data, error } = await insertMessageRelationship(
+      supabase,
+      relationship,
+    );
+
+    console.log(
+      "message_relationships food text",
+      data,
+      error,
+    );
+
+    // Store food analysis data
+    if (!response.error) {
+      const foodAnalysisData: FoodAnalysisData = {
+        chat_id: ctx.chat.id,
+        user_id: ctx.from.id,
+        message_id: ctx.message.message_id,
+        bot_id: config.id,
+        description: response.description,
+        mass: response.mass,
+        calories: response.calories,
+        protein: response.protein,
+        carbs: response.carbs,
+        sugar: response.sugar,
+        fats: response.fats,
+        saturated_fats: response.saturated_fats,
+        fiber: response.fiber,
+        nutrition_score: response.nutrition_score,
+        recommendation: response.recommendation,
+        has_image: false,
+        user_text: ctx.message.text,
+      };
+      await insertFoodAnalysis(
+        supabase,
+        foodAnalysisData,
+      );
+    }
+  }
+
+  return true;
+}
