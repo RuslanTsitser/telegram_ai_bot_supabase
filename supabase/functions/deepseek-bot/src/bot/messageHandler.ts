@@ -109,137 +109,19 @@ export function setupBotHandlers(
       return;
     }
 
-    // Handle text messages
+    // ----------------------------------------------------------------------------
+    // ОБРАБОТКА КОМАНД
+    // ----------------------------------------------------------------------------
     if (ctx.message.text) {
       const message = ctx.message.text;
-
-      if (message.startsWith("/start") && chatType === "private") {
-        console.log("start message");
-
-        // Извлекаем параметр из команды /start (например, /start channel_name)
-        const startParts = message.trim().split(/\s+/);
-        if (startParts.length > 1) {
-          const trafficSource = startParts[1];
-          console.log("traffic_source из команды /start:", trafficSource);
-
-          // Сохраняем traffic_source (только если поле еще не заполнено)
-          await updateUserTrafficSource(supabase, ctx.from.id, trafficSource);
-        }
-
-        await onboardingSimple(ctx, supabase);
-
-        return;
-      }
-
-      if (message === "/set_profile" && chatType === "private") {
-        console.log("set_profile command");
-        await ctx.reply(i18n.t("enter_height"));
-        await upsertUserSession(supabase, ctx.from.id, "waiting_for_height");
-        return;
-      }
-
-      if (message === "/get_profile" && chatType === "private") {
-        console.log("stats command");
-        const userProfile = await getUserProfile(supabase, ctx.from.id);
-        const calculations = await getUserCalculations(supabase, ctx.from.id);
-        await ctx.reply(
-          `
-${i18n.t("profile_height")}: ${userProfile?.height_cm} ${i18n.t("cm")}
-${i18n.t("profile_weight")}: ${userProfile?.weight_kg} ${i18n.t("kg")}
-${i18n.t("profile_target_weight")}: ${userProfile?.target_weight_kg} ${
-            i18n.t("kg")
-          }
-${i18n.t("profile_gender")}: ${
-            userProfile?.gender === 0
-              ? i18n.t("profile_male")
-              : i18n.t("profile_female")
-          }
-${i18n.t("profile_birth_year")}: ${userProfile?.birth_year}
-${i18n.t("profile_activity_level")}: ${userProfile?.activity_level}
-
-${i18n.t("bmi")}: ${calculations?.bmi}
-${i18n.t("target_calories")}: ${calculations?.target_calories}
-${i18n.t("target_protein")}: ${calculations?.target_protein_g} ${i18n.t("g")}
-${i18n.t("target_fats")}: ${calculations?.target_fats_g} ${i18n.t("g")}
-${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
-`,
-        );
-
-        return;
-      }
-
-      if (message === "/help" && chatType === "private") {
-        console.log("help command");
-        await onboarding(ctx, supabase);
-        return;
-      }
-
-      if (
-        (message === "/subscriptions" || message === "/subscriptions_test") &&
-        chatType === "private"
-      ) {
-        console.log("subscriptions command");
-        const inTest = message === "/subscriptions_test";
-
-        const ok = await replyWithAvailableSubscriptions(
-          ctx,
-          supabase,
-          i18n,
-          inTest,
-        );
-        if (!ok) {
-          await ctx.reply(i18n.t("error"));
-        }
-        return;
-      }
-
-      if (message === "/limits" && chatType === "private") {
-        console.log("limits command");
-
-        const userLimits = await checkUserLimits(ctx.from.id, supabase);
-
-        let limitsMessage = i18n.t("limits_title") + "\n\n";
-
-        if (userLimits.isPremium) {
-          limitsMessage += i18n.t("premium_active") + "\n" +
-            i18n.t("premium_unlimited") + "\n" +
-            i18n.t("premium_text_analysis") + "\n" +
-            i18n.t("premium_image_analysis") + "\n\n";
-        } else {
-          limitsMessage += i18n.t("free_account") + "\n" +
-            i18n.t("free_features") + "\n" +
-            i18n.t("free_text_analysis") + " " +
-            (userLimits.dailyTextAnalysesLeft > 0
-              ? `${userLimits.dailyTextAnalysesLeft} ${
-                i18n.t("free_text_analysis_limit")
-              }`
-              : i18n.t("free_text_analysis_exhausted")) +
-            "\n" +
-            i18n.t("free_image_analysis") + "\n\n" +
-            i18n.t("subscribe_prompt");
-        }
-
-        await ctx.reply(limitsMessage);
-        return;
-      }
-
-      if (message === "/language" && chatType === "private") {
-        console.log("language command");
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: "🇷🇺 Русский", callback_data: "language_ru" }],
-            [{ text: "🇺🇸 English", callback_data: "language_en" }],
-          ],
-        };
-
-        await ctx.reply(i18n.t("select_language"), { reply_markup: keyboard });
-        return;
-      }
-
-      if (message === "/set_promo" && chatType === "private") {
-        console.log("set_promo command");
-        await ctx.reply(i18n.t("enter_promo_code"));
+      const commandHandled = await handleCommand(
+        ctx,
+        message,
+        chatType,
+        supabase,
+        i18n,
+      );
+      if (commandHandled) {
         return;
       }
     }
