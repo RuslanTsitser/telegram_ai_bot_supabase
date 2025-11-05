@@ -21,16 +21,8 @@ import {
   upsertUser,
 } from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
-import {
-  getUserCalculations,
-  getUserProfile,
-  upsertUserProfile,
-} from "../db/userProfile.ts";
-import {
-  deleteUserSession,
-  getUserSession,
-  upsertUserSession,
-} from "../db/userSessions.ts";
+import { getUserCalculations, getUserProfile } from "../db/userProfile.ts";
+import { upsertUserSession } from "../db/userSessions.ts";
 import {
   FoodAnalysisData,
   MessageRelationship,
@@ -45,6 +37,7 @@ import {
 import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
 import { createI18n } from "../utils/i18n.ts";
 import { selectOptimalPhoto } from "../utils/selectOptimalPhoto.ts";
+import { handleUserSession } from "./handleUserSessions.ts";
 import { onboarding } from "./onboarding.ts";
 import { onboardingSimple } from "./onboarding_simple.ts";
 
@@ -71,145 +64,11 @@ export function setupBotHandlers(
     const userLanguage = await getUserLanguage(supabase, ctx.from.id);
     const i18n = createI18n(userLanguage);
 
-    const userSession = await getUserSession(supabase, ctx.from.id);
-
-    if (userSession) {
-      if (ctx.message.text === "/cancel") {
-        await deleteUserSession(supabase, ctx.from.id);
-        return;
-      }
-      const userProfile = await getUserProfile(supabase, ctx.from.id);
-      if (!userProfile) {
-        await upsertUserProfile(supabase, ctx.from.id, {
-          height_cm: 178,
-          weight_kg: 80,
-          target_weight_kg: 78,
-          gender: 0,
-          birth_year: 1996,
-          activity_level: 1,
-        });
-      }
-      if (userSession.current_state === "waiting_for_height") {
-        if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
-          await upsertUserProfile(
-            supabase,
-            ctx.from.id,
-            { height_cm: Number(ctx.message.text) },
-          );
-          await upsertUserSession(
-            supabase,
-            ctx.from.id,
-            "waiting_for_weight",
-          );
-          await ctx.reply(i18n.t("enter_weight"));
-        } else {
-          await ctx.reply(i18n.t("invalid_height"));
-        }
-      } else if (userSession.current_state === "waiting_for_weight") {
-        if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
-          await upsertUserProfile(supabase, ctx.from.id, {
-            weight_kg: Number(ctx.message.text),
-          });
-          await upsertUserSession(
-            supabase,
-            ctx.from.id,
-            "waiting_for_target_weight",
-          );
-          await ctx.reply(i18n.t("enter_target_weight"));
-        } else {
-          await ctx.reply(i18n.t("invalid_weight"));
-        }
-      } else if (userSession.current_state === "waiting_for_target_weight") {
-        if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
-          await upsertUserProfile(supabase, ctx.from.id, {
-            target_weight_kg: Number(ctx.message.text),
-          });
-          await upsertUserSession(supabase, ctx.from.id, "waiting_for_gender");
-          await ctx.reply(i18n.t("enter_gender"));
-        } else {
-          await ctx.reply(i18n.t("invalid_target_weight"));
-        }
-      } else if (userSession.current_state === "waiting_for_gender") {
-        if (ctx.message.text === "М" || ctx.message.text === "Ж") {
-          await upsertUserProfile(supabase, ctx.from.id, {
-            gender: ctx.message.text === "М" ? 0 : 1,
-          });
-          await upsertUserSession(supabase, ctx.from.id, "waiting_for_age");
-          await ctx.reply(i18n.t("enter_age"));
-        } else {
-          await ctx.reply(i18n.t("invalid_gender"));
-        }
-      } else if (userSession.current_state === "waiting_for_age") {
-        if (ctx.message.text && !isNaN(Number(ctx.message.text))) {
-          await upsertUserProfile(supabase, ctx.from.id, {
-            birth_year: Number(ctx.message.text),
-          });
-          await upsertUserSession(
-            supabase,
-            ctx.from.id,
-            "waiting_for_activity_level",
-          );
-          await ctx.reply(i18n.t("enter_activity_level"));
-        } else {
-          await ctx.reply(i18n.t("invalid_age"));
-        }
-      } else if (userSession.current_state === "waiting_for_activity_level") {
-        if (
-          ctx.message.text && !isNaN(Number(ctx.message.text)) &&
-          Number(ctx.message.text) >= 0 && Number(ctx.message.text) <= 4
-        ) {
-          await upsertUserProfile(supabase, ctx.from.id, {
-            activity_level: Number(ctx.message.text),
-          });
-          await deleteUserSession(supabase, ctx.from.id);
-          const calculations = await getUserCalculations(supabase, ctx.from.id);
-          await ctx.reply(`${i18n.t("profile_saved")}
-${i18n.t("profile_height")}: ${userProfile?.height_cm} ${i18n.t("cm")}
-${i18n.t("profile_weight")}: ${userProfile?.weight_kg} ${i18n.t("kg")}
-${i18n.t("profile_target_weight")}: ${userProfile?.target_weight_kg} ${
-            i18n.t("kg")
-          }
-${i18n.t("profile_gender")}: ${
-            userProfile?.gender === 0
-              ? i18n.t("profile_male")
-              : i18n.t("profile_female")
-          }
-${i18n.t("profile_birth_year")}: ${userProfile?.birth_year}
-${i18n.t("profile_activity_level")}: ${userProfile?.activity_level}
-
-${i18n.t("bmi")}: ${calculations?.bmi}
-${i18n.t("target_calories")}: ${calculations?.target_calories}
-${i18n.t("target_protein")}: ${calculations?.target_protein_g} ${i18n.t("g")}
-${i18n.t("target_fats")}: ${calculations?.target_fats_g} ${i18n.t("g")}
-${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
-
-${i18n.t("change_profile")}
-${i18n.t("profile_settings")}
-
-${i18n.t("start_analysis")}
-`);
-        } else {
-          await ctx.reply(i18n.t("invalid_activity_level"));
-        }
-      } else if (userSession.current_state === "waiting_for_promo") {
-        if (ctx.message.text && ctx.message.text.trim().length > 0) {
-          const promoCode = ctx.message.text.trim();
-          const success = await updateUserPromo(
-            supabase,
-            ctx.from.id,
-            promoCode,
-          );
-
-          if (success) {
-            await deleteUserSession(supabase, ctx.from.id);
-            await ctx.reply(i18n.t("promo_code_updated", { code: promoCode }));
-          } else {
-            await ctx.reply(i18n.t("promo_code_update_error"));
-          }
-        } else {
-          await ctx.reply(i18n.t("invalid_promo_code"));
-        }
-      }
+    // ----------------------------------------------------------------------------
+    // ОБРАБОТКА СЕССИЙ ПОЛЬЗОВАТЕЛЯ
+    // ----------------------------------------------------------------------------
+    const sessionHandled = await handleUserSession(ctx, supabase, i18n);
+    if (sessionHandled) {
       return;
     }
 
