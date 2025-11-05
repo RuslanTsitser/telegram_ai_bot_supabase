@@ -59,6 +59,11 @@ export function setupBotHandlers(
     const chatType = ctx.message.chat.type;
     console.log(`${config.id} - ${chatType} message`, ctx.message.chat.id);
 
+    // Обрабатываем только личные чаты
+    if (chatType !== "private") {
+      return;
+    }
+
     // Обрабатываем пользователя при каждом сообщении
     await upsertUser(ctx, supabase);
 
@@ -712,6 +717,11 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
   bot.on("edited_message", async (ctx) => {
     const edited = ctx.editedMessage;
     if (!edited) return;
+
+    // Обрабатываем только личные чаты
+    if (edited.chat.type !== "private") {
+      return;
+    }
 
     // Обрабатываем пользователя при каждом сообщении
     await upsertUser(ctx, supabase);
