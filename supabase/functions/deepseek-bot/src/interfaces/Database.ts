@@ -77,3 +77,13 @@ export interface UserCalculations {
   target_fats_g: number | null;
   target_carbs_g: number | null;
 }
+
+// Интерфейс для связи пользователя с тредом поддержки
+export interface SupportThread {
+  id: string;
+  telegram_user_id: number;
+  thread_id: number;
+  bot_id: string;
+  created_at: string;
+  updated_at: string;
+}

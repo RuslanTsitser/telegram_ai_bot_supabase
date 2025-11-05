@@ -4,6 +4,7 @@ export interface BotConfig {
   secret: string;
   youKassaProviderToken: string;
   youKassaProviderTestToken: string;
+  supportGroupId?: number; // ID группы поддержки (опционально)
 }
 
 export const BOT_CONFIGS: Record<string, BotConfig> = {
@@ -15,6 +16,9 @@ export const BOT_CONFIGS: Record<string, BotConfig> = {
       "",
     youKassaProviderTestToken:
       Deno.env.get("DEEPSEEK_YOOKASSA_PROVIDER_TOKEN_TEST") || "",
+    supportGroupId: Deno.env.get("DEEPSEEK_SUPPORT_GROUP_ID")
+      ? parseInt(Deno.env.get("DEEPSEEK_SUPPORT_GROUP_ID")!)
+      : undefined,
   },
   "production": {
     id: "production",
@@ -24,6 +28,9 @@ export const BOT_CONFIGS: Record<string, BotConfig> = {
       "",
     youKassaProviderTestToken:
       Deno.env.get("PRODUCTION_YOOKASSA_PROVIDER_TOKEN_TEST") || "",
+    supportGroupId: Deno.env.get("PRODUCTION_SUPPORT_GROUP_ID")
+      ? parseInt(Deno.env.get("PRODUCTION_SUPPORT_GROUP_ID")!)
+      : undefined,
   },
 };
 
