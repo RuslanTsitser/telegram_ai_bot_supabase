@@ -1,0 +1,138 @@
+import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { handleFoodImage } from "../ai/handleFoodImage.ts";
+import { BotConfig } from "../config/botConfig.ts";
+import { insertFoodAnalysis } from "../db/foodAnalysis.ts";
+import { insertMessageRelationship } from "../db/messageRelationships.ts";
+import { checkUserLimits } from "../db/userLimits.ts";
+import {
+  FoodAnalysisData,
+  MessageRelationship,
+} from "../interfaces/Database.ts";
+import { getImageUrlFromTelegram } from "../telegram/getImageUrlFromTelegram.ts";
+import {
+  replyWithAvailableSubscriptions,
+} from "../telegram/subscriptionHandlers.ts";
+import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
+import { I18n } from "../utils/i18n.ts";
+import { selectOptimalPhoto } from "../utils/selectOptimalPhoto.ts";
+
+export async function handleFoodImageAnalysis(
+  ctx: Context,
+  config: BotConfig,
+  supabase: SupabaseClient,
+  i18n: I18n,
+  userLanguage: string,
+  chatType: string,
+): Promise<boolean> {
+  // Проверка наличия сообщения, фотографии, пользователя и чата
+  if (!ctx.message || !ctx.message.photo || !ctx.from || !ctx.chat) {
+    return false;
+  }
+
+  // Специальная проверка для file_id
+  if (ctx.message.caption === "file_id" && chatType === "private") {
+    const fileId = ctx.message.photo[0].file_id;
+    await ctx.reply(fileId);
+    return true;
+  }
+
+  // Проверяем лимиты пользователя
+  const userLimits = await checkUserLimits(ctx.from.id, supabase);
+
+  if (!userLimits.canAnalyzeImage) {
+    if (!userLimits.isPremium) {
+      await ctx.reply(
+        i18n.t("image_analysis_limit_reached") + "\n\n" +
+          i18n.t("image_analysis_subscribe"),
+      );
+      await replyWithAvailableSubscriptions(ctx, supabase, i18n);
+      return true;
+    } else {
+      await ctx.reply(i18n.t("access_check_error"));
+      return true;
+    }
+  }
+
+  const caption = ctx.message.caption || "";
+  // Выбираем PhotoSize с разрешением близким к 1024×1024
+  const photoSizes = ctx.message.photo.map((p) => ({
+    file_id: p.file_id,
+    width: p.width,
+    height: p.height,
+  }));
+  const optimalPhoto = selectOptimalPhoto(photoSizes);
+
+  console.log("received food photo for analysis", chatType);
+  const response = await handleFoodImage(
+    optimalPhoto.file_id,
+    caption,
+    config.token,
+    userLanguage,
+  );
+
+  const messageText = formatFoodAnalysisMessage(response, userLanguage);
+
+  let sentMessage;
+  if (chatType === "private") {
+    sentMessage = await ctx.reply(messageText);
+  }
+
+  console.log("sentMessage food image", sentMessage);
+
+  // Store the relationship in Supabase
+  if (sentMessage) {
+    // Store message relationship
+    const relationship: MessageRelationship = {
+      user_message_id: ctx.message.message_id,
+      bot_message_id: sentMessage.message_id,
+      chat_id: ctx.chat.id,
+      bot_id: config.id,
+    };
+    const { data, error } = await insertMessageRelationship(
+      supabase,
+      relationship,
+    );
+
+    console.log(
+      "message_relationships food image",
+      data,
+      error,
+    );
+
+    // Store food analysis data
+    if (!response.error) {
+      const imageUrl = await getImageUrlFromTelegram(
+        optimalPhoto.file_id,
+        config.token,
+      );
+      const foodAnalysisData: FoodAnalysisData = {
+        chat_id: ctx.chat.id,
+        user_id: ctx.from.id,
+        message_id: ctx.message.message_id,
+        bot_id: config.id,
+        description: response.description,
+        mass: response.mass,
+        calories: response.calories,
+        protein: response.protein,
+        carbs: response.carbs,
+        sugar: response.sugar,
+        fats: response.fats,
+        saturated_fats: response.saturated_fats,
+        fiber: response.fiber,
+        nutrition_score: response.nutrition_score,
+        recommendation: response.recommendation,
+        has_image: true,
+        image_file_id: optimalPhoto.file_id,
+        image_url: imageUrl || undefined,
+        user_text: caption,
+      };
+      await insertFoodAnalysis(
+        supabase,
+        foodAnalysisData,
+      );
+    }
+  }
+
+  return true;
+}

@@ -126,30 +126,22 @@ export function setupBotHandlers(
       }
     }
 
-    // Handle photo messages
+    // ----------------------------------------------------------------------------
+    // ОБРАБОТКА АНАЛИЗА ФОТОГРАФИЙ
+    // ----------------------------------------------------------------------------
     if (ctx.message.photo) {
-      if (ctx.message.caption === "file_id" && chatType === "private") {
-        const fileId = ctx.message.photo[0].file_id;
-        await ctx.reply(fileId);
+      const handled = await handleFoodImageAnalysis(
+        ctx,
+        config,
+        supabase,
+        i18n,
+        userLanguage,
+        chatType,
+      );
+      if (handled) {
         return;
       }
-
-      // Проверяем лимиты пользователя
-      const userLimits = await checkUserLimits(ctx.from.id, supabase);
-
-      if (!userLimits.canAnalyzeImage) {
-        if (!userLimits.isPremium) {
-          await ctx.reply(
-            i18n.t("image_analysis_limit_reached") + "\n\n" +
-              i18n.t("image_analysis_subscribe"),
-          );
-          await replyWithAvailableSubscriptions(ctx, supabase, i18n);
-          return;
-        } else {
-          await ctx.reply(i18n.t("access_check_error"));
-          return;
-        }
-      }
+    }
 
       const caption = ctx.message.caption || "";
       // Выбираем PhotoSize с разрешением близким к 1024×1024
