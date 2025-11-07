@@ -197,5 +197,12 @@ ${i18n.t("start_analysis")}
     return true;
   }
 
+  // Обработка состояния support_mode
+  // Возвращаем true, чтобы сообщение не обрабатывалось как анализ питания
+  // Сама обработка сообщений поддержки будет в messageHandler
+  if (userSession.current_state === "support_mode") {
+    return true;
+  }
+
   return false;
 }

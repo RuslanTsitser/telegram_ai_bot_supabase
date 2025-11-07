@@ -3,7 +3,7 @@ import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { updateUserTrafficSource } from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
 import { getUserCalculations, getUserProfile } from "../db/userProfile.ts";
-import { upsertUserSession } from "../db/userSessions.ts";
+import { deleteUserSession, upsertUserSession } from "../db/userSessions.ts";
 import {
   replyWithAvailableSubscriptions,
 } from "../telegram/subscriptionHandlers.ts";
@@ -158,6 +158,26 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
   if (message === "/set_promo" && chatType === "private") {
     console.log("set_promo command");
     await ctx.reply(i18n.t("enter_promo_code"));
+    return true;
+  }
+
+  // Команда /test_support
+  if (message === "/test_support" && chatType === "private") {
+    console.log("test_support command");
+    await upsertUserSession(supabase, ctx.from.id, "support_mode");
+    await ctx.reply(
+      "✅ Режим поддержки активирован. Теперь все ваши сообщения будут пересылаться в канал поддержки.\n\nИспользуйте /stop_support для деактивации.",
+    );
+    return true;
+  }
+
+  // Команда /stop_support
+  if (message === "/stop_support" && chatType === "private") {
+    console.log("stop_support command");
+    await deleteUserSession(supabase, ctx.from.id);
+    await ctx.reply(
+      "❌ Режим поддержки деактивирован. Теперь ваши сообщения обрабатываются как обычно.",
+    );
     return true;
   }
 

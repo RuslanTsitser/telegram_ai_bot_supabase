@@ -8,7 +8,8 @@ export interface UserSession {
     | "waiting_for_gender"
     | "waiting_for_age"
     | "waiting_for_activity_level"
-    | "waiting_for_promo";
+    | "waiting_for_promo"
+    | "support_mode";
   created_at: string;
   updated_at: string;
 }
