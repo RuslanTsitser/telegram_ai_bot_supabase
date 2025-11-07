@@ -38,7 +38,35 @@ export function setupBotHandlers(
   // ============================================================================
   bot.on("message", async (ctx) => {
     const chatType = ctx.message.chat.type;
-    console.log(`${config.id} - ${chatType} message`, ctx.message.chat.id);
+    const chatId = ctx.message.chat.id;
+    // message_thread_id доступен для форумов (групп с тредами)
+    const messageThreadId = "message_thread_id" in ctx.message
+      ? (ctx.message as { message_thread_id?: number }).message_thread_id
+      : undefined;
+    const fromId = ctx.from?.id;
+    const fromUsername = ctx.from?.username;
+
+    // Логирование для всех типов чатов
+    if (chatType === "private") {
+      console.log(
+        `${config.id} - [PRIVATE] chat_id: ${chatId}, user_id: ${fromId}, username: @${
+          fromUsername || "none"
+        }`,
+      );
+    } else {
+      // Подробное логирование для групп
+      const isSupportGroup = config.supportGroupId === chatId;
+      const logPrefix = isSupportGroup ? "[SUPPORT_GROUP]" : "[GROUP]";
+      console.log(
+        `${config.id} - ${logPrefix} chat_id: ${chatId}, chat_type: ${chatType}, thread_id: ${
+          messageThreadId || "none"
+        }, user_id: ${fromId}, username: @${fromUsername || "none"}, text: ${
+          ctx.message.text
+            ? ctx.message.text.substring(0, 50) + "..."
+            : "no text"
+        }`,
+      );
+    }
 
     // Обрабатываем только личные чаты
     if (chatType !== "private") {
@@ -263,6 +291,21 @@ export function setupBotHandlers(
   bot.on("edited_message", async (ctx) => {
     const edited = ctx.editedMessage;
     if (!edited) return;
+
+    const chatType = edited.chat.type;
+    const chatId = edited.chat.id;
+    const fromId = ctx.from?.id;
+
+    // Логирование отредактированных сообщений
+    if (chatType === "private") {
+      console.log(
+        `${config.id} - [EDITED_PRIVATE] chat_id: ${chatId}, user_id: ${fromId}`,
+      );
+    } else {
+      console.log(
+        `${config.id} - [EDITED_${chatType.toUpperCase()}] chat_id: ${chatId}, user_id: ${fromId}`,
+      );
+    }
 
     // Обрабатываем только личные чаты
     if (edited.chat.type !== "private") {
