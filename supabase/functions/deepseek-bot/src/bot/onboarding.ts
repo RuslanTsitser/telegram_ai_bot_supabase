@@ -54,6 +54,8 @@ ${i18n.t("onboarding_subscribe")}
 ${i18n.t("onboarding_promo")}
 
 ${i18n.t("onboarding_profile")}
+
+${i18n.t("onboarding_support")}
       `,
   );
 }

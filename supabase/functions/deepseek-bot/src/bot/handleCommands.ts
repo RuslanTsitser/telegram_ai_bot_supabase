@@ -170,9 +170,9 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
     return true;
   }
 
-  // Команда /test_support
-  if (message === "/test_support" && chatType === "private") {
-    console.log("test_support command");
+  // Команда /support
+  if (message === "/support" && chatType === "private") {
+    console.log("support command");
 
     if (!config || !config.supportChannelId) {
       await ctx.reply("❌ Канал поддержки не настроен.");
@@ -232,9 +232,17 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
 
     // Активируем режим поддержки
     await upsertUserSession(supabase, ctx.from.id, "support_mode");
-    await ctx.reply(
-      "✅ Режим поддержки активирован. Теперь все ваши сообщения будут пересылаться в канал поддержки.\n\nИспользуйте /stop_support для деактивации.",
-    );
+
+    // Добавляем reply кнопку для остановки режима поддержки
+    const supportKeyboard = {
+      keyboard: [[{ text: "/stop_support" }]],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+    };
+
+    await ctx.reply(i18n.t("support_mode_activated"), {
+      reply_markup: supportKeyboard,
+    });
     return true;
   }
 
@@ -242,9 +250,11 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
   if (message === "/stop_support" && chatType === "private") {
     console.log("stop_support command");
     await deleteUserSession(supabase, ctx.from.id);
-    await ctx.reply(
-      "❌ Режим поддержки деактивирован. Теперь ваши сообщения обрабатываются как обычно.",
-    );
+
+    // Удаляем reply кнопку
+    await ctx.reply(i18n.t("support_mode_deactivated"), {
+      reply_markup: { remove_keyboard: true },
+    });
     return true;
   }
 

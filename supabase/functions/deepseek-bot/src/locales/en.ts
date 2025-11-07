@@ -176,6 +176,11 @@ export const en = {
     "🎟️ If you have a promo code, use the /set_promo command to activate it",
   onboarding_profile:
     "I also suggest setting up your profile using the /set_profile command",
+  onboarding_support: "For technical support, use the /support command",
+  support_mode_activated:
+    "✅ Support mode activated. All your messages will now be forwarded to the support channel.\n\nUse /stop_support to deactivate.",
+  support_mode_deactivated:
+    "❌ Support mode deactivated. Your messages are now processed as usual.",
 
   // Onboarding captions
   onboarding_caption_text_example:

@@ -220,7 +220,7 @@ ${i18n.t("start_analysis")}
 
     if (!supportThread || !supportThread.post_id) {
       console.log(
-        "Support thread not found, post should be created via /test_support",
+        "Support thread not found, post should be created via /support",
       );
       return true;
     }
