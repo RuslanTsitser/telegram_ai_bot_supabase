@@ -54,12 +54,23 @@ export function setupBotHandlers(
         }`,
       );
     } else {
-      // Подробное логирование для групп
-      const isSupportGroup = config.supportGroupId === chatId;
-      const logPrefix = isSupportGroup ? "[SUPPORT_GROUP]" : "[GROUP]";
+      // Подробное логирование для групп и каналов
+      const isSupportChannel = config.supportChannelId === chatId;
+      const isDiscussionGroup = config.supportDiscussionGroupId === chatId;
+      const replyToMessageId = ctx.message.reply_to_message?.message_id;
+
+      let logPrefix = "[GROUP/CHANNEL]";
+      if (isSupportChannel) {
+        logPrefix = "[SUPPORT_CHANNEL]";
+      } else if (isDiscussionGroup) {
+        logPrefix = "[SUPPORT_DISCUSSION_GROUP]";
+      }
+
       console.log(
         `${config.id} - ${logPrefix} chat_id: ${chatId}, chat_type: ${chatType}, thread_id: ${
           messageThreadId || "none"
+        }, reply_to_message_id: ${
+          replyToMessageId || "none"
         }, user_id: ${fromId}, username: @${fromUsername || "none"}, text: ${
           ctx.message.text
             ? ctx.message.text.substring(0, 50) + "..."

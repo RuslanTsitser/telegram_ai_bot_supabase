@@ -78,11 +78,11 @@ export interface UserCalculations {
   target_carbs_g: number | null;
 }
 
-// Интерфейс для связи пользователя с тредом поддержки
+// Интерфейс для связи пользователя с постом поддержки в канале
 export interface SupportThread {
   id: string;
   telegram_user_id: number;
-  thread_id: number;
+  post_id: number; // ID поста в канале (message_id)
   bot_id: string;
   created_at: string;
   updated_at: string;

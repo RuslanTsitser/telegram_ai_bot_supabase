@@ -4,7 +4,8 @@ export interface BotConfig {
   secret: string;
   youKassaProviderToken: string;
   youKassaProviderTestToken: string;
-  supportGroupId?: number; // ID группы поддержки (опционально)
+  supportChannelId?: number; // ID канала поддержки (опционально)
+  supportDiscussionGroupId?: number; // ID группы обсуждений для канала (опционально)
 }
 
 export const BOT_CONFIGS: Record<string, BotConfig> = {
@@ -16,8 +17,11 @@ export const BOT_CONFIGS: Record<string, BotConfig> = {
       "",
     youKassaProviderTestToken:
       Deno.env.get("DEEPSEEK_YOOKASSA_PROVIDER_TOKEN_TEST") || "",
-    supportGroupId: Deno.env.get("DEEPSEEK_SUPPORT_GROUP_ID")
-      ? parseInt(Deno.env.get("DEEPSEEK_SUPPORT_GROUP_ID")!)
+    supportChannelId: Deno.env.get("SUPPORT_CHANNEL_ID")
+      ? parseInt(Deno.env.get("SUPPORT_CHANNEL_ID")!)
+      : undefined,
+    supportDiscussionGroupId: Deno.env.get("SUPPORT_DISCUSSION_GROUP_ID")
+      ? parseInt(Deno.env.get("SUPPORT_DISCUSSION_GROUP_ID")!)
       : undefined,
   },
   "production": {
@@ -28,8 +32,11 @@ export const BOT_CONFIGS: Record<string, BotConfig> = {
       "",
     youKassaProviderTestToken:
       Deno.env.get("PRODUCTION_YOOKASSA_PROVIDER_TOKEN_TEST") || "",
-    supportGroupId: Deno.env.get("PRODUCTION_SUPPORT_GROUP_ID")
-      ? parseInt(Deno.env.get("PRODUCTION_SUPPORT_GROUP_ID")!)
+    supportChannelId: Deno.env.get("SUPPORT_CHANNEL_ID")
+      ? parseInt(Deno.env.get("SUPPORT_CHANNEL_ID")!)
+      : undefined,
+    supportDiscussionGroupId: Deno.env.get("SUPPORT_DISCUSSION_GROUP_ID")
+      ? parseInt(Deno.env.get("SUPPORT_DISCUSSION_GROUP_ID")!)
       : undefined,
   },
 };

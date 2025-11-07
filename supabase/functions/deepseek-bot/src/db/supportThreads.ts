@@ -2,21 +2,21 @@ import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SupportThread } from "../interfaces/Database.ts";
 
 /**
- * Получает или создает тред поддержки для пользователя
+ * Получает или создает пост поддержки для пользователя
  * @param supabase - клиент Supabase
  * @param telegramUserId - Telegram ID пользователя
  * @param botId - ID бота
- * @param threadId - ID треда в группе поддержки (если тред уже создан)
+ * @param postId - ID поста в канале поддержки (если пост уже создан)
  * @returns SupportThread или null в случае ошибки
  */
 export async function getOrCreateSupportThread(
   supabase: SupabaseClient,
   telegramUserId: number,
   botId: string,
-  threadId?: number,
+  postId?: number,
 ): Promise<SupportThread | null> {
   try {
-    // Сначала пытаемся найти существующий тред
+    // Сначала пытаемся найти существующий пост
     const { data: existingThread, error: findError } = await supabase
       .from("support_threads")
       .select("*")
@@ -25,18 +25,18 @@ export async function getOrCreateSupportThread(
       .maybeSingle();
 
     if (findError && findError.code !== "PGRST116") {
-      console.error("Ошибка поиска треда поддержки:", findError);
+      console.error("Ошибка поиска поста поддержки:", findError);
       return null;
     }
 
-    // Если тред уже существует, возвращаем его
+    // Если пост уже существует, возвращаем его
     if (existingThread) {
-      // Если передан новый threadId, обновляем его
-      if (threadId && existingThread.thread_id !== threadId) {
+      // Если передан новый postId, обновляем его
+      if (postId && existingThread.post_id !== postId) {
         const { data: updatedThread, error: updateError } = await supabase
           .from("support_threads")
           .update({
-            thread_id: threadId,
+            post_id: postId,
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingThread.id)
@@ -44,7 +44,7 @@ export async function getOrCreateSupportThread(
           .single();
 
         if (updateError) {
-          console.error("Ошибка обновления треда:", updateError);
+          console.error("Ошибка обновления поста:", updateError);
           return existingThread;
         }
 
@@ -54,13 +54,13 @@ export async function getOrCreateSupportThread(
       return existingThread;
     }
 
-    // Если тред не найден и передан threadId, создаем новый
-    if (threadId) {
+    // Если пост не найден и передан postId, создаем новый
+    if (postId) {
       const { data: newThread, error: insertError } = await supabase
         .from("support_threads")
         .insert({
           telegram_user_id: telegramUserId,
-          thread_id: threadId,
+          post_id: postId,
           bot_id: botId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -69,29 +69,29 @@ export async function getOrCreateSupportThread(
         .single();
 
       if (insertError) {
-        console.error("Ошибка создания треда поддержки:", insertError);
+        console.error("Ошибка создания поста поддержки:", insertError);
         return null;
       }
 
       console.log(
-        "Создан тред поддержки для пользователя:",
+        "Создан пост поддержки для пользователя:",
         telegramUserId,
-        "thread_id:",
-        threadId,
+        "post_id:",
+        postId,
       );
       return newThread;
     }
 
-    // Если тред не найден и threadId не передан, возвращаем null
+    // Если пост не найден и postId не передан, возвращаем null
     return null;
   } catch (error) {
-    console.error("Ошибка обработки треда поддержки:", error);
+    console.error("Ошибка обработки поста поддержки:", error);
     return null;
   }
 }
 
 /**
- * Получает тред поддержки для пользователя
+ * Получает пост поддержки для пользователя
  * @param supabase - клиент Supabase
  * @param telegramUserId - Telegram ID пользователя
  * @param botId - ID бота
@@ -111,45 +111,45 @@ export async function getSupportThread(
       .maybeSingle();
 
     if (error) {
-      console.error("Ошибка получения треда поддержки:", error);
+      console.error("Ошибка получения поста поддержки:", error);
       return null;
     }
 
     return data;
   } catch (error) {
-    console.error("Ошибка получения треда поддержки:", error);
+    console.error("Ошибка получения поста поддержки:", error);
     return null;
   }
 }
 
 /**
- * Получает пользователя по ID треда
+ * Получает пользователя по ID поста в канале
  * @param supabase - клиент Supabase
- * @param threadId - ID треда в группе поддержки
+ * @param postId - ID поста в канале поддержки
  * @param botId - ID бота
  * @returns SupportThread или null
  */
-export async function getSupportThreadByThreadId(
+export async function getSupportThreadByPostId(
   supabase: SupabaseClient,
-  threadId: number,
+  postId: number,
   botId: string,
 ): Promise<SupportThread | null> {
   try {
     const { data, error } = await supabase
       .from("support_threads")
       .select("*")
-      .eq("thread_id", threadId)
+      .eq("post_id", postId)
       .eq("bot_id", botId)
       .maybeSingle();
 
     if (error) {
-      console.error("Ошибка получения треда по thread_id:", error);
+      console.error("Ошибка получения поста по post_id:", error);
       return null;
     }
 
     return data;
   } catch (error) {
-    console.error("Ошибка получения треда по thread_id:", error);
+    console.error("Ошибка получения поста по post_id:", error);
     return null;
   }
 }
