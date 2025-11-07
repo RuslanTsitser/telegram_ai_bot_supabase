@@ -83,6 +83,7 @@ export interface SupportThread {
   id: string;
   telegram_user_id: number;
   post_id: number; // ID поста в канале (message_id)
+  discussion_message_id?: number; // ID сообщения в группе обсуждений для reply
   bot_id: string;
   created_at: string;
   updated_at: string;

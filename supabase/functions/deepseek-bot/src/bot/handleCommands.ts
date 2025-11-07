@@ -1,6 +1,14 @@
 import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { updateUserTrafficSource } from "../db/upsertUser.ts";
+import { BotConfig } from "../config/botConfig.ts";
+import {
+  getOrCreateSupportThread,
+  getSupportThread,
+} from "../db/supportThreads.ts";
+import {
+  getUserByTelegramId,
+  updateUserTrafficSource,
+} from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
 import { getUserCalculations, getUserProfile } from "../db/userProfile.ts";
 import { deleteUserSession, upsertUserSession } from "../db/userSessions.ts";
@@ -17,6 +25,7 @@ export async function handleCommand(
   chatType: string,
   supabase: SupabaseClient,
   i18n: I18n,
+  config?: BotConfig,
 ): Promise<boolean> {
   // Проверка наличия пользователя
   if (!ctx.from) {
@@ -164,6 +173,64 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
   // Команда /test_support
   if (message === "/test_support" && chatType === "private") {
     console.log("test_support command");
+
+    if (!config || !config.supportChannelId) {
+      await ctx.reply("❌ Канал поддержки не настроен.");
+      return true;
+    }
+
+    // Проверяем, есть ли уже пост для пользователя
+    const existingThread = await getSupportThread(
+      supabase,
+      ctx.from.id,
+      config.id,
+    );
+
+    if (!existingThread || !existingThread.post_id) {
+      // Если поста нет, создаем новый пост в канале
+      const user = await getUserByTelegramId(supabase, ctx.from.id);
+
+      if (!user) {
+        await ctx.reply("❌ Ошибка: пользователь не найден.");
+        return true;
+      }
+
+      const userName = user.first_name || user.username ||
+        `User ${ctx.from.id}`;
+      const userInfo = `👤 ${userName}${
+        user.username ? ` (@${user.username})` : ""
+      }\nID: ${ctx.from.id}`;
+
+      try {
+        const channelPost = await ctx.api.sendMessage(
+          config.supportChannelId,
+          userInfo,
+        );
+
+        if (channelPost) {
+          // Сохраняем связь user_id -> post_id в БД
+          await getOrCreateSupportThread(
+            supabase,
+            ctx.from.id,
+            config.id,
+            channelPost.message_id,
+          );
+
+          console.log(
+            "Support post created:",
+            channelPost.message_id,
+            "for user:",
+            ctx.from.id,
+          );
+        }
+      } catch (error) {
+        console.error("Error creating support post:", error);
+        await ctx.reply("❌ Ошибка при создании поста поддержки.");
+        return true;
+      }
+    }
+
+    // Активируем режим поддержки
     await upsertUserSession(supabase, ctx.from.id, "support_mode");
     await ctx.reply(
       "✅ Режим поддержки активирован. Теперь все ваши сообщения будут пересылаться в канал поддержки.\n\nИспользуйте /stop_support для деактивации.",

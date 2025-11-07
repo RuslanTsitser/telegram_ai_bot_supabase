@@ -1,6 +1,8 @@
 import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { updateUserPromo } from "../db/upsertUser.ts";
+import { BotConfig } from "../config/botConfig.ts";
+import { getSupportThread } from "../db/supportThreads.ts";
+import { getUserByTelegramId, updateUserPromo } from "../db/upsertUser.ts";
 import {
   getUserCalculations,
   getUserProfile,
@@ -17,6 +19,7 @@ export async function handleUserSession(
   ctx: Context,
   supabase: SupabaseClient,
   i18n: I18n,
+  config?: BotConfig,
 ): Promise<boolean> {
   // Проверка наличия пользователя и сообщения
   if (!ctx.from || !ctx.message) {
@@ -198,10 +201,180 @@ ${i18n.t("start_analysis")}
   }
 
   // Обработка состояния support_mode
-  // Возвращаем true, чтобы сообщение не обрабатывалось как анализ питания
-  // Сама обработка сообщений поддержки будет в messageHandler
   if (userSession.current_state === "support_mode") {
-    return true;
+    if (!config || !config.supportChannelId) {
+      console.log("Support channel not configured");
+      return true; // Возвращаем true, чтобы не обрабатывать как анализ питания
+    }
+
+    const userId = ctx.from.id;
+    const user = await getUserByTelegramId(supabase, userId);
+
+    if (!user) {
+      console.error("User not found:", userId);
+      return true;
+    }
+
+    // Получаем пост поддержки для пользователя
+    const supportThread = await getSupportThread(supabase, userId, config.id);
+
+    if (!supportThread || !supportThread.post_id) {
+      console.log(
+        "Support thread not found, post should be created via /test_support",
+      );
+      return true;
+    }
+
+    if (!config.supportDiscussionGroupId) {
+      console.log("Discussion group not configured");
+      return true;
+    }
+
+    try {
+      let messageText = "";
+      let hasMedia = false;
+
+      // Обработка текстового сообщения
+      if (ctx.message.text) {
+        messageText = ctx.message.text;
+      }
+
+      // Обработка фото
+      if (ctx.message.photo) {
+        hasMedia = true;
+        const caption = ctx.message.caption || "";
+        if (caption) {
+          messageText = caption;
+        }
+      }
+
+      // Обработка документа
+      if (ctx.message.document) {
+        hasMedia = true;
+        const caption = ctx.message.caption || "";
+        if (caption) {
+          messageText = caption;
+        } else {
+          messageText = `📎 ${ctx.message.document.file_name || "Документ"}`;
+        }
+      }
+
+      // Обработка видео
+      if (ctx.message.video) {
+        hasMedia = true;
+        const caption = ctx.message.caption || "";
+        if (caption) {
+          messageText = caption;
+        } else {
+          messageText = "🎥 Видео";
+        }
+      }
+
+      // Обработка голосового сообщения
+      if (ctx.message.voice) {
+        hasMedia = true;
+        messageText = messageText || "🎤 Голосовое сообщение";
+      }
+
+      // Обработка аудио
+      if (ctx.message.audio) {
+        hasMedia = true;
+        const title = ctx.message.audio.title || "Аудио";
+        messageText = messageText || `🎵 ${title}`;
+      }
+
+      // Если нет текста и нет медиа, пропускаем
+      if (!messageText && !hasMedia) {
+        return true;
+      }
+
+      console.log(
+        "Adding comment to support post:",
+        supportThread.post_id,
+        "for user:",
+        userId,
+      );
+
+      // Используем discussion_message_id для reply, если он есть
+      // Если его еще нет, значит автоматически созданное сообщение от поста еще не обработано
+      // В этом случае отправляем без reply - оно будет добавлено позже
+      const replyToMessageId = supportThread.discussion_message_id || undefined;
+
+      let sentMessage;
+      if (hasMedia) {
+        if (ctx.message.photo) {
+          const photo = ctx.message.photo[ctx.message.photo.length - 1];
+          sentMessage = await ctx.api.sendPhoto(
+            config.supportDiscussionGroupId,
+            photo.file_id,
+            {
+              caption: messageText || "",
+              reply_to_message_id: replyToMessageId,
+            },
+          );
+        } else if (ctx.message.document) {
+          sentMessage = await ctx.api.sendDocument(
+            config.supportDiscussionGroupId,
+            ctx.message.document.file_id,
+            {
+              caption: messageText || "",
+              reply_to_message_id: replyToMessageId,
+            },
+          );
+        } else if (ctx.message.video) {
+          sentMessage = await ctx.api.sendVideo(
+            config.supportDiscussionGroupId,
+            ctx.message.video.file_id,
+            {
+              caption: messageText || "",
+              reply_to_message_id: replyToMessageId,
+            },
+          );
+        } else if (ctx.message.voice) {
+          sentMessage = await ctx.api.sendVoice(
+            config.supportDiscussionGroupId,
+            ctx.message.voice.file_id,
+            {
+              caption: messageText || "",
+              reply_to_message_id: replyToMessageId,
+            },
+          );
+        } else if (ctx.message.audio) {
+          sentMessage = await ctx.api.sendAudio(
+            config.supportDiscussionGroupId,
+            ctx.message.audio.file_id,
+            {
+              caption: messageText || "",
+              reply_to_message_id: replyToMessageId,
+            },
+          );
+        }
+      } else {
+        sentMessage = await ctx.api.sendMessage(
+          config.supportDiscussionGroupId,
+          messageText || "",
+          {
+            reply_to_message_id: replyToMessageId,
+          },
+        );
+      }
+
+      if (sentMessage) {
+        console.log(
+          "Support comment added:",
+          sentMessage.message_id,
+          "to post:",
+          supportThread.post_id,
+          "reply_to:",
+          replyToMessageId || "none",
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error handling support message:", error);
+      return true; // Возвращаем true, чтобы не обрабатывать как анализ питания
+    }
   }
 
   return false;

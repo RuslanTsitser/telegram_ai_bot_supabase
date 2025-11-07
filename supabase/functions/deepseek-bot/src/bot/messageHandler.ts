@@ -24,6 +24,7 @@ import { selectOptimalPhoto } from "../utils/selectOptimalPhoto.ts";
 import { handleCommand } from "./handleCommands.ts";
 import { handleFoodImageAnalysis } from "./handleFoodImageAnalysis.ts";
 import { handleFoodTextAnalysis } from "./handleFoodTextAnalysis.ts";
+import { handleSupportDiscussionMessage } from "./handleSupportDiscussionMessages.ts";
 import { handleUserSession } from "./handleUserSessions.ts";
 
 // helper вынесен в ../telegram/subscriptionHandlers.ts
@@ -77,6 +78,18 @@ export function setupBotHandlers(
             : "no text"
         }`,
       );
+    }
+
+    // ----------------------------------------------------------------------------
+    // ОБРАБОТКА СООБЩЕНИЙ ИЗ ГРУППЫ ОБСУЖДЕНИЙ
+    // ----------------------------------------------------------------------------
+    const discussionHandled = await handleSupportDiscussionMessage(
+      ctx,
+      config,
+      supabase,
+    );
+    if (discussionHandled) {
+      return;
     }
 
     // Обрабатываем только личные чаты
@@ -141,6 +154,7 @@ export function setupBotHandlers(
         chatType,
         supabase,
         i18n,
+        config,
       );
       if (commandHandled) {
         return;
@@ -148,12 +162,10 @@ export function setupBotHandlers(
     }
 
     // ----------------------------------------------------------------------------
-    // ОБРАБОТКА СЕССИЙ ПОЛЬЗОВАТЕЛЯ
+    // ОБРАБОТКА СЕССИЙ ПОЛЬЗОВАТЕЛЯ И ПОДДЕРЖКИ
     // ----------------------------------------------------------------------------
-    const sessionHandled = await handleUserSession(ctx, supabase, i18n);
+    const sessionHandled = await handleUserSession(ctx, supabase, i18n, config);
     if (sessionHandled) {
-      // Если сессия обработана (включая режим поддержки), возвращаем
-      // Обработка сообщений поддержки будет добавлена позже
       return;
     }
 
