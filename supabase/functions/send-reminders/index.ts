@@ -120,9 +120,38 @@ async function sendTelegramMessage(
   }
 }
 
+// Функция для проверки, не является ли текущее время ночным
+// Возвращает true, если время находится в диапазоне 22:00 - 08:00
+function isNightTime(timezone: string): boolean {
+  try {
+    // Получаем текущее время в часовом поясе пользователя
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hour: "numeric",
+      hour12: false,
+    });
+
+    const hour = parseInt(formatter.format(now), 10);
+
+    // Ночное время: с 22:00 до 08:00
+    return hour >= 22 || hour < 8;
+  } catch (error) {
+    console.error(`Error checking night time for timezone ${timezone}:`, error);
+    // В случае ошибки разрешаем отправку (безопасный вариант)
+    return false;
+  }
+}
+
 // Функция для проверки, нужно ли отправить напоминание
 function shouldSendReminder(reminder: UserReminder): boolean {
   if (!reminder.is_enabled) return false;
+
+  // Проверяем, не является ли текущее время ночным
+  // Для напоминаний о воде не отправляем ночью
+  if (reminder.reminder_type === "water" && isNightTime(reminder.timezone)) {
+    return false;
+  }
 
   const now = new Date();
   const lastSent = reminder.last_sent_at
