@@ -19,6 +19,7 @@ import {
   createSubscriptionInvoice,
   handleTrialSubscription,
 } from "../telegram/subscriptionHandlers.ts";
+import { logEvent } from "../utils/analytics.ts";
 import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
 import { createI18n } from "../utils/i18n.ts";
 import { selectOptimalPhoto } from "../utils/selectOptimalPhoto.ts";
@@ -241,6 +242,11 @@ export function setupBotHandlers(
       const success = await insertWaterIntake(supabase, ctx.from.id, amount);
 
       if (success) {
+        // Логируем событие
+        await logEvent(ctx.from.id, "telegram", "water_intake_recorded", {
+          amount: amount,
+        });
+
         // Удаляем сообщение-напоминание
         try {
           if (
