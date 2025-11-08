@@ -15,6 +15,9 @@ interface UserStats {
   avg_fats: number | null;
   avg_nutrition_score: number | null;
   active_days: number;
+  total_water_intake: number;
+  total_water_ml: number;
+  avg_daily_water: number | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -59,6 +62,7 @@ Deno.serve(async (req: Request) => {
     const [
       { count: totalCount, error: totalCountError },
       { count: imagesCount, error: imagesCountError },
+      { count: waterCount, error: waterCountError },
     ] = await Promise.all([
       supabase
         .from("food_analysis")
@@ -69,17 +73,22 @@ Deno.serve(async (req: Request) => {
         .select("*", { count: "exact", head: true })
         .eq("user_id", user_id)
         .eq("has_image", true),
+      supabase
+        .from("water_intake")
+        .select("*", { count: "exact", head: true })
+        .eq("telegram_user_id", user_id),
     ]);
 
-    if (totalCountError || imagesCountError) {
+    if (totalCountError || imagesCountError || waterCountError) {
       console.error(
         "Error fetching counts:",
-        totalCountError || imagesCountError,
+        totalCountError || imagesCountError || waterCountError,
       );
       return new Response(
         JSON.stringify({
           error: "Failed to fetch counts",
-          details: (totalCountError || imagesCountError)?.message,
+          details: (totalCountError || imagesCountError || waterCountError)
+            ?.message,
         }),
         {
           status: 500,
@@ -92,18 +101,31 @@ Deno.serve(async (req: Request) => {
     }
 
     // Get analyses for average calculations (one query, up to 1000 records)
-    const { data: analyses, error: analysesError } = await supabase
-      .from("food_analysis")
-      .select("*")
-      .eq("user_id", user_id)
-      .order("created_at", { ascending: true });
+    const [
+      { data: analyses, error: analysesError },
+      { data: waterIntakes, error: waterIntakesError },
+    ] = await Promise.all([
+      supabase
+        .from("food_analysis")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("water_intake")
+        .select("*")
+        .eq("telegram_user_id", user_id)
+        .order("created_at", { ascending: true }),
+    ]);
 
-    if (analysesError) {
-      console.error("Error fetching user analyses:", analysesError);
+    if (analysesError || waterIntakesError) {
+      console.error(
+        "Error fetching user data:",
+        analysesError || waterIntakesError,
+      );
       return new Response(
         JSON.stringify({
-          error: "Failed to fetch user analyses",
-          details: analysesError.message,
+          error: "Failed to fetch user data",
+          details: (analysesError || waterIntakesError)?.message,
         }),
         {
           status: 500,
@@ -114,6 +136,42 @@ Deno.serve(async (req: Request) => {
         },
       );
     }
+
+    // Calculate water statistics
+    const totalWaterIntake = waterCount || 0;
+    const waterIntakesList = waterIntakes || [];
+
+    // Convert water intake amounts to ml
+    // sips = 50 ml, glass = 250 ml
+    const waterAmounts = {
+      sips: 50,
+      glass: 250,
+    };
+
+    let totalWaterMl = 0;
+    const waterDailyTotals: { [key: string]: number } = {};
+    const waterDays = new Set<string>();
+
+    waterIntakesList.forEach((intake) => {
+      const amountMl =
+        waterAmounts[intake.amount as keyof typeof waterAmounts] || 0;
+      totalWaterMl += amountMl;
+
+      if (intake.created_at) {
+        const date = new Date(intake.created_at).toDateString();
+        waterDays.add(date);
+
+        if (!waterDailyTotals[date]) {
+          waterDailyTotals[date] = 0;
+        }
+        waterDailyTotals[date] += amountMl;
+      }
+    });
+
+    const waterActiveDays = waterDays.size;
+    const avgDailyWater = waterActiveDays > 0
+      ? Math.round((totalWaterMl / waterActiveDays) * 10) / 10
+      : null;
 
     if (!analyses || analyses.length === 0) {
       const emptyStats: UserStats = {
@@ -130,6 +188,9 @@ Deno.serve(async (req: Request) => {
         avg_fats: null,
         avg_nutrition_score: null,
         active_days: 0,
+        total_water_intake: totalWaterIntake,
+        total_water_ml: totalWaterMl,
+        avg_daily_water: avgDailyWater,
       };
 
       return new Response(
@@ -299,6 +360,9 @@ Deno.serve(async (req: Request) => {
       avg_fats: avgFats,
       avg_nutrition_score: avgNutritionScore,
       active_days: activeDays,
+      total_water_intake: totalWaterIntake,
+      total_water_ml: totalWaterMl,
+      avg_daily_water: avgDailyWater,
     };
 
     return new Response(
