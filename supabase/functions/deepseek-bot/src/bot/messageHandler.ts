@@ -2,7 +2,7 @@ import { Bot } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleFoodImage } from "../ai/handleFoodImage.ts";
 import { BotConfig } from "../config/botConfig.ts";
-import { upsertFoodAnalysis } from "../db/foodAnalysis.ts";
+import { updateUserStreaks, upsertFoodAnalysis } from "../db/foodAnalysis.ts";
 import { getBotMessageId } from "../db/messageRelationships.ts";
 import { processSuccessfulPayment } from "../db/processSuccessfulPayment.ts";
 import { getSubscriptionPlanById } from "../db/subscriptions.ts";
@@ -448,7 +448,11 @@ export function setupBotHandlers(
             has_image: true,
           };
 
-          await upsertFoodAnalysis(supabase, foodAnalysisData);
+          const upserted = await upsertFoodAnalysis(supabase, foodAnalysisData);
+          // Обновляем стрики пользователя
+          if (upserted) {
+            await updateUserStreaks(supabase, edited.from.id);
+          }
         }
       }
     } else if (edited.text) {
@@ -496,10 +500,14 @@ export function setupBotHandlers(
             user_text: edited.text || "",
             has_image: false,
           };
-          await upsertFoodAnalysis(
+          const upserted = await upsertFoodAnalysis(
             supabase,
             foodAnalysisData,
           );
+          // Обновляем стрики пользователя
+          if (upserted) {
+            await updateUserStreaks(supabase, edited.from.id);
+          }
         }
       }
     }

@@ -2,7 +2,7 @@ import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleFoodImage } from "../ai/handleFoodImage.ts";
 import { BotConfig } from "../config/botConfig.ts";
-import { insertFoodAnalysis } from "../db/foodAnalysis.ts";
+import { insertFoodAnalysis, updateUserStreaks } from "../db/foodAnalysis.ts";
 import { insertMessageRelationship } from "../db/messageRelationships.ts";
 import { createReminderIfNeeded } from "../db/reminders.ts";
 import {
@@ -184,10 +184,15 @@ export async function handleFoodImageAnalysis(
         image_url: imageUrl || undefined,
         user_text: caption,
       };
-      await insertFoodAnalysis(
+      const inserted = await insertFoodAnalysis(
         supabase,
         foodAnalysisData,
       );
+
+      // Обновляем стрики пользователя
+      if (inserted) {
+        await updateUserStreaks(supabase, ctx.from.id);
+      }
 
       // Логируем успешный анализ изображения
       await logEvent(ctx.from.id, "telegram", "food_analysis_image", {
