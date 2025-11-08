@@ -4,6 +4,7 @@ import { handleFoodImage } from "../ai/handleFoodImage.ts";
 import { BotConfig } from "../config/botConfig.ts";
 import { insertFoodAnalysis } from "../db/foodAnalysis.ts";
 import { insertMessageRelationship } from "../db/messageRelationships.ts";
+import { createReminderIfNeeded } from "../db/reminders.ts";
 import { getSubscriptionPlanByPromoCode } from "../db/subscriptions.ts";
 import {
   activateTrialByPromoCode,
@@ -193,6 +194,9 @@ export async function handleFoodTextAnalysis(
         calories: response.calories,
         nutrition_score: response.nutrition_score,
       });
+
+      // Создаем напоминание о еде, если у пользователя его еще нет
+      await createReminderIfNeeded(supabase, ctx.from.id);
     } else {
       // Логируем ошибку анализа
       await logEvent(ctx.from.id, "telegram", "food_analysis_text", {
