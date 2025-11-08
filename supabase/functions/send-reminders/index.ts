@@ -160,8 +160,46 @@ function isNightTime(timezone: string): boolean {
   }
 }
 
+// Функция для проверки, был ли трекинг еды в течение 30 минут до времени напоминания
+async function hasRecentFoodTracking(
+  telegramUserId: number,
+  reminderTime: Date,
+): Promise<boolean> {
+  try {
+    // Вычисляем время 30 минут до напоминания
+    const thirtyMinutesAgo = new Date(reminderTime.getTime() - 30 * 60 * 1000);
+
+    // Проверяем наличие записей о трекинге еды в диапазоне от 30 минут до напоминания до времени напоминания
+    const { data, error } = await supabase
+      .from("food_analysis")
+      .select("id")
+      .eq("user_id", telegramUserId)
+      .gte("created_at", thirtyMinutesAgo.toISOString())
+      .lte("created_at", reminderTime.toISOString())
+      .limit(1);
+
+    if (error) {
+      console.error(
+        `Error checking recent food tracking for user ${telegramUserId}:`,
+        error,
+      );
+      // В случае ошибки разрешаем отправку (безопасный вариант)
+      return false;
+    }
+
+    return (data?.length || 0) > 0;
+  } catch (error) {
+    console.error(
+      `Error in hasRecentFoodTracking for user ${telegramUserId}:`,
+      error,
+    );
+    // В случае ошибки разрешаем отправку (безопасный вариант)
+    return false;
+  }
+}
+
 // Функция для проверки, нужно ли отправить напоминание
-function shouldSendReminder(reminder: UserReminder): boolean {
+async function shouldSendReminder(reminder: UserReminder): Promise<boolean> {
   if (!reminder.is_enabled) return false;
 
   // Проверяем, не является ли текущее время ночным
@@ -196,6 +234,22 @@ function shouldSendReminder(reminder: UserReminder): boolean {
             return false;
           }
         }
+
+        // Для напоминаний о еде проверяем, был ли недавний трекинг
+        // Проверяем относительно времени напоминания
+        if (reminder.reminder_type === "meal") {
+          const hasRecentTracking = await hasRecentFoodTracking(
+            reminder.telegram_user_id,
+            reminderDateTime,
+          );
+          if (hasRecentTracking) {
+            console.log(
+              `Skipping meal reminder for user ${reminder.telegram_user_id} - recent food tracking found`,
+            );
+            return false;
+          }
+        }
+
         return true;
       }
     }
@@ -203,12 +257,42 @@ function shouldSendReminder(reminder: UserReminder): boolean {
 
   // Для периодических напоминаний
   if (reminder.interval_minutes) {
-    if (!lastSent) return true; // Первое напоминание
+    if (!lastSent) {
+      // Для первого напоминания о еде проверяем, был ли недавний трекинг
+      if (reminder.reminder_type === "meal") {
+        const hasRecentTracking = await hasRecentFoodTracking(
+          reminder.telegram_user_id,
+          now,
+        );
+        if (hasRecentTracking) {
+          console.log(
+            `Skipping first meal reminder for user ${reminder.telegram_user_id} - recent food tracking found`,
+          );
+          return false;
+        }
+      }
+      return true;
+    }
 
     const timeSinceLastSent = now.getTime() - lastSent.getTime();
     const intervalMs = reminder.interval_minutes * 60 * 1000;
 
-    return timeSinceLastSent >= intervalMs;
+    if (timeSinceLastSent >= intervalMs) {
+      // Для периодических напоминаний о еде проверяем, был ли недавний трекинг
+      if (reminder.reminder_type === "meal") {
+        const hasRecentTracking = await hasRecentFoodTracking(
+          reminder.telegram_user_id,
+          now,
+        );
+        if (hasRecentTracking) {
+          console.log(
+            `Skipping periodic meal reminder for user ${reminder.telegram_user_id} - recent food tracking found`,
+          );
+          return false;
+        }
+      }
+      return true;
+    }
   }
 
   return false;
@@ -254,7 +338,63 @@ async function processReminders(): Promise<void> {
 
     // Обрабатываем каждое напоминание
     for (const reminder of reminders as UserReminder[]) {
-      if (!shouldSendReminder(reminder)) continue;
+      const shouldSend = await shouldSendReminder(reminder);
+
+      // Если напоминание о еде не отправляется из-за недавнего трекинга,
+      // все равно обновляем last_sent_at в БД
+      if (!shouldSend && reminder.reminder_type === "meal") {
+        const now = new Date();
+        const lastSent = reminder.last_sent_at
+          ? new Date(reminder.last_sent_at)
+          : null;
+
+        // Проверяем, нужно ли обновить last_sent_at
+        // Для напоминаний по времени
+        if (reminder.reminder_time) {
+          const [hours, minutes] = reminder.reminder_time.split(":").map(
+            Number,
+          );
+          const reminderDateTime = new Date();
+          reminderDateTime.setHours(hours, minutes, 0, 0);
+
+          if (now >= reminderDateTime) {
+            if (!lastSent || lastSent.toDateString() !== now.toDateString()) {
+              // Проверяем, был ли недавний трекинг
+              const hasRecentTracking = await hasRecentFoodTracking(
+                reminder.telegram_user_id,
+                reminderDateTime,
+              );
+
+              if (hasRecentTracking) {
+                // Обновляем last_sent_at, даже если напоминание не отправляется
+                await supabase
+                  .from("user_reminders")
+                  .update({ last_sent_at: new Date().toISOString() })
+                  .eq("id", reminder.id);
+
+                // Записываем в историю
+                await supabase
+                  .from("reminder_history")
+                  .insert({
+                    telegram_user_id: reminder.telegram_user_id,
+                    reminder_type: reminder.reminder_type,
+                    status: "skipped",
+                    reminder_id: reminder.id,
+                    error_message: "Skipped due to recent food tracking",
+                  });
+
+                console.log(
+                  `Skipped meal reminder for user ${reminder.telegram_user_id} - recent food tracking found, updated last_sent_at`,
+                );
+              }
+            }
+          }
+        }
+
+        continue;
+      }
+
+      if (!shouldSend) continue;
 
       const user = usersMap.get(reminder.telegram_user_id);
       if (!user) {
