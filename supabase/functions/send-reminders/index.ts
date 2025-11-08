@@ -16,6 +16,7 @@ interface UserReminder {
   interval_minutes?: number;
   last_sent_at?: string;
   timezone: string;
+  created_at?: string;
 }
 
 interface User {
@@ -167,6 +168,18 @@ function shouldSendReminder(reminder: UserReminder): boolean {
     // Если время напоминания уже прошло сегодня и последнее напоминание было не сегодня
     if (now >= reminderDateTime) {
       if (!lastSent || lastSent.toDateString() !== now.toDateString()) {
+        // Проверяем, было ли напоминание создано до времени напоминания сегодня
+        // Если создано после времени напоминания, не отправляем сегодня
+        if (reminder.created_at) {
+          const createdAt = new Date(reminder.created_at);
+          // Если напоминание создано сегодня, но после времени напоминания - не отправляем
+          if (
+            createdAt.toDateString() === now.toDateString() &&
+            createdAt > reminderDateTime
+          ) {
+            return false;
+          }
+        }
         return true;
       }
     }
