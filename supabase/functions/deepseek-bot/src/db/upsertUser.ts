@@ -1,6 +1,7 @@
 import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import SupabaseClient from "https://esm.sh/@supabase/supabase-js@2.49.4/dist/module/SupabaseClient.js";
 import { DbUser } from "../interfaces/Database.ts";
+import { logEvent } from "../utils/analytics.ts";
 import { getSubscriptionPlanByPromoCode } from "./subscriptions.ts";
 
 // Простые функции для работы с пользователями
@@ -15,6 +16,15 @@ export async function upsertUser(
     console.log("ctx.from.language_code", ctx.from.language_code);
     const userLanguage = ctx.from.language_code || "ru";
     const supportedLanguage = userLanguage.startsWith("en") ? "en" : "ru";
+
+    // Проверяем, существует ли пользователь
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("id")
+      .eq("telegram_user_id", ctx.from.id)
+      .single();
+
+    const isNewUser = !existingUser;
 
     const { error } = await supabase
       .from("users")
@@ -32,6 +42,14 @@ export async function upsertUser(
     if (error) {
       console.error("Ошибка upsert пользователя:", error);
       return;
+    }
+
+    // Логируем регистрацию только для новых пользователей
+    if (isNewUser) {
+      await logEvent(ctx.from.id, "telegram", "user_registered", {
+        language: supportedLanguage,
+        username: ctx.from.username || null,
+      });
     }
 
     console.log("Пользователь обработан:", ctx.from.id);

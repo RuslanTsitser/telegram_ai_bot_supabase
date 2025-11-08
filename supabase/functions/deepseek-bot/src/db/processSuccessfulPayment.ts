@@ -1,4 +1,5 @@
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logEvent } from "../utils/analytics.ts";
 
 export interface ProcessPaymentResult {
   success: boolean;
@@ -96,6 +97,15 @@ export async function processSuccessfulPayment(
       console.error("Error creating payment record:", paymentError);
       // Не возвращаем ошибку, так как основная логика выполнена
     }
+
+    // Логируем успешную покупку подписки
+    await logEvent(parseInt(userId), "telegram", "subscription_purchased", {
+      plan_id: planId,
+      plan_name: plan.name,
+      price: payment.total_amount / 100,
+      currency: payment.currency,
+      duration_days: plan.duration_days,
+    });
 
     return {
       success: true,

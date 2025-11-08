@@ -4,6 +4,7 @@ import { BotConfig } from "../config/botConfig.ts";
 import { getSubscriptionPlans } from "../db/subscriptions.ts";
 import { activateTrialByPromoCode } from "../db/upsertUser.ts";
 import { SubscriptionPlan } from "../interfaces/Database.ts";
+import { logEvent } from "../utils/analytics.ts";
 import { formatWithDeclension } from "../utils/declension.ts";
 import { I18n } from "../utils/i18n.ts";
 
@@ -51,6 +52,12 @@ export async function handleTrialSubscription(
     );
     return;
   }
+
+  // Логируем активацию триала
+  await logEvent(userId, "telegram", "trial_activated", {
+    promo_code: userPromo,
+    plan_id: plan.id,
+  });
 
   // Получаем обновленную дату окончания премиума для отображения
   const { data: updatedUser } = await supabase
@@ -106,6 +113,14 @@ export async function createSubscriptionInvoice(
         amount: Math.round(plan.price * 100), // в копейках
       }],
     );
+
+    // Логируем создание invoice
+    await logEvent(userId, "telegram", "subscription_invoice_created", {
+      plan_id: plan.id,
+      plan_name: plan.name,
+      price: plan.price,
+      is_test: test,
+    });
 
     await ctx.answerCallbackQuery(i18n.t("subscription_invoice_created"));
   } catch (error) {

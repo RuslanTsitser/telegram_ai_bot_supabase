@@ -13,6 +13,7 @@ import { getImageUrlFromTelegram } from "../telegram/getImageUrlFromTelegram.ts"
 import {
   replyWithAvailableSubscriptions,
 } from "../telegram/subscriptionHandlers.ts";
+import { logEvent } from "../utils/analytics.ts";
 import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
 import { I18n } from "../utils/i18n.ts";
 import { selectOptimalPhoto } from "../utils/selectOptimalPhoto.ts";
@@ -41,6 +42,12 @@ export async function handleFoodImageAnalysis(
   const userLimits = await checkUserLimits(ctx.from.id, supabase);
 
   if (!userLimits.canAnalyzeImage) {
+    // Логируем достижение лимита
+    await logEvent(ctx.from.id, "telegram", "limit_reached", {
+      limit_type: "image",
+      is_premium: userLimits.isPremium,
+    });
+
     if (!userLimits.isPremium) {
       await ctx.reply(
         i18n.t("image_analysis_limit_reached") + "\n\n" +
@@ -131,6 +138,20 @@ export async function handleFoodImageAnalysis(
         supabase,
         foodAnalysisData,
       );
+
+      // Логируем успешный анализ изображения
+      await logEvent(ctx.from.id, "telegram", "food_analysis_image", {
+        has_error: false,
+        has_caption: !!caption,
+        calories: response.calories,
+        nutrition_score: response.nutrition_score,
+      });
+    } else {
+      // Логируем ошибку анализа
+      await logEvent(ctx.from.id, "telegram", "food_analysis_image", {
+        has_error: true,
+        error: response.error,
+      });
     }
   }
 

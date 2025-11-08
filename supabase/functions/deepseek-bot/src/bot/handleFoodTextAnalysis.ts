@@ -16,6 +16,7 @@ import {
   MessageRelationship,
 } from "../interfaces/Database.ts";
 import { replyWithAvailableSubscriptions } from "../telegram/subscriptionHandlers.ts";
+import { logEvent } from "../utils/analytics.ts";
 import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
 import { I18n } from "../utils/i18n.ts";
 
@@ -75,6 +76,11 @@ export async function handleFoodTextAnalysis(
     );
 
     if (trialActivated) {
+      // Логируем активацию триала по промокоду
+      await logEvent(ctx.from.id, "telegram", "trial_activated", {
+        promo_code: ctx.message.text,
+      });
+
       // Получаем обновленную дату окончания премиума
       const updatedUser = await getUserByTelegramId(supabase, ctx.from.id);
       if (updatedUser?.premium_expires_at) {
@@ -95,6 +101,12 @@ export async function handleFoodTextAnalysis(
   }
 
   if (!userLimits.canAnalyzeText) {
+    // Логируем достижение лимита
+    await logEvent(ctx.from.id, "telegram", "limit_reached", {
+      limit_type: "text",
+      is_premium: userLimits.isPremium,
+    });
+
     if (!userLimits.isPremium) {
       await ctx.reply(i18n.t("text_analysis_limit_reached"));
       const ok = await replyWithAvailableSubscriptions(
@@ -174,6 +186,19 @@ export async function handleFoodTextAnalysis(
         supabase,
         foodAnalysisData,
       );
+
+      // Логируем успешный анализ текста
+      await logEvent(ctx.from.id, "telegram", "food_analysis_text", {
+        has_error: false,
+        calories: response.calories,
+        nutrition_score: response.nutrition_score,
+      });
+    } else {
+      // Логируем ошибку анализа
+      await logEvent(ctx.from.id, "telegram", "food_analysis_text", {
+        has_error: true,
+        error: response.error,
+      });
     }
   }
 

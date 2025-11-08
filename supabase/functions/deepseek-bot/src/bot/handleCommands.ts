@@ -17,6 +17,7 @@ import { deleteUserSession, upsertUserSession } from "../db/userSessions.ts";
 import {
   replyWithAvailableSubscriptions,
 } from "../telegram/subscriptionHandlers.ts";
+import { logEvent } from "../utils/analytics.ts";
 import { createI18n, I18n } from "../utils/i18n.ts";
 import { onboarding } from "./onboarding.ts";
 import { onboardingSimple } from "./onboarding_simple.ts";
@@ -40,8 +41,9 @@ export async function handleCommand(
 
     // Извлекаем параметр из команды /start (например, /start channel_name)
     const startParts = message.trim().split(/\s+/);
+    let trafficSource: string | undefined;
     if (startParts.length > 1) {
-      const trafficSource = startParts[1];
+      trafficSource = startParts[1];
       if (trafficSource) {
         console.log("traffic_source из команды /start:", trafficSource);
 
@@ -49,6 +51,12 @@ export async function handleCommand(
         await updateUserTrafficSource(supabase, ctx.from.id, trafficSource);
       }
     }
+
+    // Логируем событие команды /start
+    await logEvent(ctx.from.id, "telegram", "command_executed", {
+      command: "/start",
+      traffic_source: trafficSource,
+    });
 
     await onboardingSimple(ctx, supabase);
 
@@ -65,6 +73,11 @@ export async function handleCommand(
           userPromo,
         );
         if (trialActivated) {
+          // Логируем активацию триала
+          await logEvent(ctx.from.id, "telegram", "trial_activated", {
+            promo_code: userPromo,
+          });
+
           // Получаем обновленную дату окончания премиума
           const updatedUser = await getUserByTelegramId(supabase, ctx.from.id);
           if (updatedUser?.premium_expires_at) {
@@ -138,6 +151,11 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
   ) {
     console.log("subscriptions command");
     const inTest = message === "/subscriptions_test";
+
+    // Логируем просмотр подписок
+    await logEvent(ctx.from.id, "telegram", "subscription_viewed", {
+      is_test: inTest,
+    });
 
     const ok = await replyWithAvailableSubscriptions(
       ctx,
@@ -266,6 +284,11 @@ ${i18n.t("target_carbs")}: ${calculations?.target_carbs_g} ${i18n.t("g")}
 
     // Активируем режим поддержки
     await upsertUserSession(supabase, ctx.from.id, "support_mode");
+
+    // Логируем активацию режима поддержки
+    await logEvent(ctx.from.id, "telegram", "support_mode_activated", {
+      has_existing_thread: !!existingThread,
+    });
 
     // Добавляем reply кнопку для остановки режима поддержки
     const supportKeyboard = {
