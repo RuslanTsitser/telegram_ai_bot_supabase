@@ -6,7 +6,9 @@ import {
   getSupportThread,
 } from "../db/supportThreads.ts";
 import {
+  activateTrialByPromoCode,
   getUserByTelegramId,
+  getUserLanguage,
   updateUserTrafficSource,
 } from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
@@ -15,7 +17,7 @@ import { deleteUserSession, upsertUserSession } from "../db/userSessions.ts";
 import {
   replyWithAvailableSubscriptions,
 } from "../telegram/subscriptionHandlers.ts";
-import { I18n } from "../utils/i18n.ts";
+import { createI18n, I18n } from "../utils/i18n.ts";
 import { onboarding } from "./onboarding.ts";
 import { onboardingSimple } from "./onboarding_simple.ts";
 
@@ -49,6 +51,38 @@ export async function handleCommand(
     }
 
     await onboardingSimple(ctx, supabase);
+
+    // Проверяем, есть ли промокод пользователя в used_promo, и активируем триал, если его нет
+    const user = await getUserByTelegramId(supabase, ctx.from.id);
+    if (user) {
+      const userRecord = user as typeof user & { used_promo?: string[] };
+      const usedPromo = userRecord.used_promo || [];
+      const userPromo = user.promo || "A";
+      if (!usedPromo.includes(userPromo)) {
+        const trialActivated = await activateTrialByPromoCode(
+          supabase,
+          ctx.from.id,
+          userPromo,
+        );
+        if (trialActivated) {
+          // Получаем обновленную дату окончания премиума
+          const updatedUser = await getUserByTelegramId(supabase, ctx.from.id);
+          if (updatedUser?.premium_expires_at) {
+            const userLanguage = await getUserLanguage(supabase, ctx.from.id);
+            const i18n = createI18n(userLanguage);
+            const trialEndDate = new Date(updatedUser.premium_expires_at);
+            await ctx.reply(
+              i18n.t("subscription_trial_activated_reply") + "\n\n" +
+                i18n.t("subscription_expires", {
+                  date: trialEndDate.toLocaleDateString(
+                    userLanguage === "en" ? "en-US" : "ru-RU",
+                  ),
+                }),
+            );
+          }
+        }
+      }
+    }
     return true;
   }
 

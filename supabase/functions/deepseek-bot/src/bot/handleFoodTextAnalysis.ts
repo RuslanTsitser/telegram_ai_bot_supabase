@@ -5,16 +5,17 @@ import { BotConfig } from "../config/botConfig.ts";
 import { insertFoodAnalysis } from "../db/foodAnalysis.ts";
 import { insertMessageRelationship } from "../db/messageRelationships.ts";
 import { getSubscriptionPlanByPromoCode } from "../db/subscriptions.ts";
-import { updateUserPromo } from "../db/upsertUser.ts";
+import {
+  activateTrialByPromoCode,
+  getUserByTelegramId,
+  updateUserPromo,
+} from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
 import {
   FoodAnalysisData,
   MessageRelationship,
 } from "../interfaces/Database.ts";
-import {
-  activateTrialWithPromo,
-  replyWithAvailableSubscriptions,
-} from "../telegram/subscriptionHandlers.ts";
+import { replyWithAvailableSubscriptions } from "../telegram/subscriptionHandlers.ts";
 import { formatFoodAnalysisMessage } from "../utils/formatFoodAnalysisMessage.ts";
 import { I18n } from "../utils/i18n.ts";
 
@@ -41,7 +42,16 @@ export async function handleFoodTextAnalysis(
   );
 
   if (plans && plans.length > 0) {
-    // активируем промо
+    // Проверяем, не использован ли промокод уже
+    const user = await getUserByTelegramId(supabase, ctx.from.id);
+    const usedPromo = user?.used_promo || [];
+
+    if (usedPromo.includes(ctx.message.text)) {
+      await ctx.reply(i18n.t("subscription_trial_already_used"));
+      return true;
+    }
+
+    // Обновляем промокод пользователя
     const success = await updateUserPromo(
       supabase,
       ctx.from.id,
@@ -54,11 +64,32 @@ export async function handleFoodTextAnalysis(
       );
     } else {
       await ctx.reply(i18n.t("promo_code_update_error"));
+      return true;
     }
 
-    const trialPlan = plans.find((plan) => plan.price === 0);
-    if (trialPlan) {
-      await activateTrialWithPromo(ctx, trialPlan, supabase, i18n);
+    // Активируем триал по промокоду
+    const trialActivated = await activateTrialByPromoCode(
+      supabase,
+      ctx.from.id,
+      ctx.message.text,
+    );
+
+    if (trialActivated) {
+      // Получаем обновленную дату окончания премиума
+      const updatedUser = await getUserByTelegramId(supabase, ctx.from.id);
+      if (updatedUser?.premium_expires_at) {
+        const trialEndDate = new Date(updatedUser.premium_expires_at);
+        await ctx.reply(
+          i18n.t("subscription_trial_activated_reply") + "\n\n" +
+            i18n.t("subscription_expires", {
+              date: trialEndDate.toLocaleDateString(
+                userLanguage === "en" ? "en-US" : "ru-RU",
+              ),
+            }),
+        );
+      } else {
+        await ctx.reply(i18n.t("subscription_trial_activated_reply"));
+      }
     }
     return true;
   }

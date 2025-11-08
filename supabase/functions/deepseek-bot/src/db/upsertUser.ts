@@ -1,6 +1,7 @@
 import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import SupabaseClient from "https://esm.sh/@supabase/supabase-js@2.49.4/dist/module/SupabaseClient.js";
 import { DbUser } from "../interfaces/Database.ts";
+import { getSubscriptionPlanByPromoCode } from "./subscriptions.ts";
 
 // Простые функции для работы с пользователями
 export async function upsertUser(
@@ -28,10 +29,110 @@ export async function upsertUser(
       .select()
       .single();
 
-    if (error) console.error("Ошибка upsert пользователя:", error);
-    else console.log("Пользователь обработан:", ctx.from.id);
+    if (error) {
+      console.error("Ошибка upsert пользователя:", error);
+      return;
+    }
+
+    console.log("Пользователь обработан:", ctx.from.id);
   } catch (error) {
     console.error("Ошибка обработки пользователя:", error);
+  }
+}
+
+// Активация триала по промокоду
+// Находит самый долгий бесплатный план по промокоду и активирует его
+// Суммирует время премиума, если оно уже есть
+// Добавляет промокод в used_promo
+export async function activateTrialByPromoCode(
+  supabase: SupabaseClient,
+  userId: number,
+  promoCode: string,
+): Promise<boolean> {
+  try {
+    // Получаем пользователя
+    const user = await getUserByTelegramId(supabase, userId);
+    if (!user) {
+      console.error("Пользователь не найден:", userId);
+      return false;
+    }
+
+    // Проверяем, не использован ли промокод уже
+    const userRecord = user as DbUser & { used_promo?: string[] };
+    const usedPromo = userRecord.used_promo || [];
+    if (usedPromo.includes(promoCode)) {
+      console.log(
+        `Промокод ${promoCode} уже использован пользователем ${userId}`,
+      );
+      return false;
+    }
+
+    // Получаем планы по промокоду
+    const plans = await getSubscriptionPlanByPromoCode(supabase, promoCode);
+    if (!plans || plans.length === 0) {
+      console.log(`Планы не найдены для промокода ${promoCode}`);
+      return false;
+    }
+
+    // Находим самый долгий бесплатный план (price === 0)
+    const freePlans = plans.filter((plan) => plan.price === 0);
+    if (freePlans.length === 0) {
+      console.log(`Бесплатные планы не найдены для промокода ${promoCode}`);
+      return false;
+    }
+
+    // Выбираем план с максимальной длительностью
+    const trialPlan = freePlans.reduce((max, plan) =>
+      plan.duration_days > max.duration_days ? plan : max
+    );
+
+    // Вычисляем новую дату окончания премиума
+    let newPremiumExpiresAt: Date;
+    const currentPremiumExpiresAt = user.premium_expires_at
+      ? new Date(user.premium_expires_at)
+      : null;
+
+    if (currentPremiumExpiresAt && currentPremiumExpiresAt > new Date()) {
+      // Если премиум еще активен - суммируем время
+      newPremiumExpiresAt = new Date(currentPremiumExpiresAt);
+      newPremiumExpiresAt.setDate(
+        newPremiumExpiresAt.getDate() + trialPlan.duration_days,
+      );
+    } else {
+      // Если премиум не активен - устанавливаем новую дату
+      newPremiumExpiresAt = new Date();
+      newPremiumExpiresAt.setDate(
+        newPremiumExpiresAt.getDate() + trialPlan.duration_days,
+      );
+    }
+
+    // Добавляем промокод в used_promo
+    const updatedUsedPromo = [...usedPromo, promoCode];
+
+    // Обновляем пользователя
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({
+        premium_expires_at: newPremiumExpiresAt.toISOString(),
+        used_promo: updatedUsedPromo,
+      })
+      .eq("telegram_user_id", userId);
+
+    if (updateError) {
+      console.error(
+        "Ошибка активации триала по промокоду:",
+        updateError,
+      );
+      return false;
+    }
+
+    console.log(
+      `Триал активирован для пользователя ${userId} по промокоду ${promoCode} до ${newPremiumExpiresAt.toISOString()}`,
+    );
+    return true;
+  } catch (error) {
+    console.error("Ошибка при активации триала по промокоду:", error);
+    return false;
   }
 }
 

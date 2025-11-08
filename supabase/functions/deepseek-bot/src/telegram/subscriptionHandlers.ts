@@ -2,6 +2,7 @@ import { Context } from "https://deno.land/x/grammy@v1.8.3/mod.ts";
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { BotConfig } from "../config/botConfig.ts";
 import { getSubscriptionPlans } from "../db/subscriptions.ts";
+import { activateTrialByPromoCode } from "../db/upsertUser.ts";
 import { SubscriptionPlan } from "../interfaces/Database.ts";
 import { formatWithDeclension } from "../utils/declension.ts";
 import { I18n } from "../utils/i18n.ts";
@@ -16,10 +17,10 @@ export async function handleTrialSubscription(
   const userId = ctx.from?.id;
   if (!userId) return;
 
-  // Проверяем, использовал ли пользователь пробный период
+  // Получаем промокод пользователя
   const { data: user, error } = await supabase
     .from("users")
-    .select("trial_used")
+    .select("promo, used_promo")
     .eq("telegram_user_id", userId)
     .single();
 
@@ -28,29 +29,39 @@ export async function handleTrialSubscription(
     return;
   }
 
-  if (user.trial_used) {
+  const userPromo = user.promo || "A";
+  const usedPromo = (user.used_promo as string[]) || [];
+
+  // Проверяем, не использован ли промокод уже
+  if (usedPromo.includes(userPromo)) {
     await ctx.answerCallbackQuery(i18n.t("subscription_trial_already_used"));
     return;
   }
 
-  // Активируем пробный период
-  const trialEndDate = new Date();
-  trialEndDate.setDate(trialEndDate.getDate() + plan.duration_days);
+  // Используем новую функцию активации триала по промокоду
+  const success = await activateTrialByPromoCode(
+    supabase,
+    userId,
+    userPromo,
+  );
 
-  const { error: updateError } = await supabase
-    .from("users")
-    .update({
-      trial_used: true,
-      premium_expires_at: trialEndDate.toISOString(),
-    })
-    .eq("telegram_user_id", userId);
-
-  if (updateError) {
+  if (!success) {
     await ctx.answerCallbackQuery(
       i18n.t("subscription_trial_activation_error"),
     );
     return;
   }
+
+  // Получаем обновленную дату окончания премиума для отображения
+  const { data: updatedUser } = await supabase
+    .from("users")
+    .select("premium_expires_at")
+    .eq("telegram_user_id", userId)
+    .single();
+
+  const trialEndDate = updatedUser?.premium_expires_at
+    ? new Date(updatedUser.premium_expires_at)
+    : new Date();
 
   await ctx.answerCallbackQuery(i18n.t("subscription_trial_activated"));
   await ctx.editMessageText(
@@ -105,17 +116,17 @@ export async function createSubscriptionInvoice(
 
 export async function activateTrialWithPromo(
   ctx: Context,
-  plan: SubscriptionPlan,
+  _plan: SubscriptionPlan,
   supabase: SupabaseClient,
   i18n: I18n,
 ) {
   const userId = ctx.from?.id;
   if (!userId) return;
 
-  // Проверяем, использовал ли пользователь пробный период
+  // Получаем промокод пользователя
   const { data: user, error } = await supabase
     .from("users")
-    .select("trial_used")
+    .select("promo, used_promo")
     .eq("telegram_user_id", userId)
     .single();
 
@@ -124,28 +135,26 @@ export async function activateTrialWithPromo(
     return;
   }
 
-  if (user.trial_used) {
+  const userPromo = user.promo || "A";
+  const usedPromo = (user.used_promo as string[]) || [];
+
+  // Проверяем, не использован ли промокод уже
+  if (usedPromo.includes(userPromo)) {
     return;
   }
 
-  // Активируем пробный период
-  const trialEndDate = new Date();
-  trialEndDate.setDate(trialEndDate.getDate() + plan.duration_days);
+  // Используем новую функцию активации триала по промокоду
+  const success = await activateTrialByPromoCode(
+    supabase,
+    userId,
+    userPromo,
+  );
 
-  const { error: updateError } = await supabase
-    .from("users")
-    .update({
-      trial_used: true,
-      premium_expires_at: trialEndDate.toISOString(),
-    })
-    .eq("telegram_user_id", userId);
-
-  if (updateError) {
+  if (success) {
+    await ctx.reply(i18n.t("subscription_trial_activated_reply"));
+  } else {
     await ctx.reply(i18n.t("subscription_trial_activation_error_reply"));
-    return;
   }
-
-  await ctx.reply(i18n.t("subscription_trial_activated_reply"));
 }
 
 // Унифицированная отправка доступных подписок с инлайн-кнопками

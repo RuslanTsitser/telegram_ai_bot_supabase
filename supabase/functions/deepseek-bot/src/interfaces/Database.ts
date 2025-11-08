@@ -52,6 +52,7 @@ export interface DbUser {
   created_at: string;
   last_activity: string;
   trial_used: boolean;
+  used_promo: string[];
   promo: string;
   language: string;
   traffic_source: string | null;
