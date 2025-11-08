@@ -210,5 +210,7 @@ export const en = {
   subscription_invoice_error: "❌ Error creating invoice",
   subscription_trial_activation_error_reply: "❌ Error activating trial period",
   subscription_trial_activated_reply: "✅ Trial period activated!",
+  subscription_trial_auto_activated:
+    "🎉 You've reached the free request limit. Trial period automatically activated!",
   subscription_days: ["day", "days", "days"],
 } as const;

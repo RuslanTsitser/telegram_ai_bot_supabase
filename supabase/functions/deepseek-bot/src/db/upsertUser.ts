@@ -154,6 +154,44 @@ export async function activateTrialByPromoCode(
   }
 }
 
+// Попытка автоматической активации триала по промокоду пользователя
+// Проверяет, есть ли у пользователя неиспользованный промокод, и активирует триал
+export async function tryActivateTrialIfAvailable(
+  supabase: SupabaseClient,
+  userId: number,
+): Promise<boolean> {
+  try {
+    // Получаем пользователя
+    const user = await getUserByTelegramId(supabase, userId);
+    if (!user) {
+      console.error("Пользователь не найден:", userId);
+      return false;
+    }
+
+    // Получаем промокод пользователя (по умолчанию "A")
+    const userRecord = user as DbUser & {
+      promo?: string;
+      used_promo?: string[];
+    };
+    const userPromo = userRecord.promo || "A";
+    const usedPromo = userRecord.used_promo || [];
+
+    // Проверяем, не использован ли промокод уже
+    if (usedPromo.includes(userPromo)) {
+      console.log(
+        `Промокод ${userPromo} уже использован пользователем ${userId}`,
+      );
+      return false;
+    }
+
+    // Активируем триал по промокоду пользователя
+    return await activateTrialByPromoCode(supabase, userId, userPromo);
+  } catch (error) {
+    console.error("Ошибка при попытке активации триала:", error);
+    return false;
+  }
+}
+
 export async function getUserByTelegramId(
   supabase: SupabaseClient,
   userId: number,

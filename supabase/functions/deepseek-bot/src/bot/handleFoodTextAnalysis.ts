@@ -9,6 +9,7 @@ import { getSubscriptionPlanByPromoCode } from "../db/subscriptions.ts";
 import {
   activateTrialByPromoCode,
   getUserByTelegramId,
+  tryActivateTrialIfAvailable,
   updateUserPromo,
 } from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
@@ -109,16 +110,65 @@ export async function handleFoodTextAnalysis(
     });
 
     if (!userLimits.isPremium) {
-      await ctx.reply(i18n.t("text_analysis_limit_reached"));
-      const ok = await replyWithAvailableSubscriptions(
-        ctx,
+      // Пытаемся автоматически активировать триал, если доступен
+      const trialActivated = await tryActivateTrialIfAvailable(
         supabase,
-        i18n,
+        ctx.from.id,
       );
-      if (!ok) {
-        await ctx.reply(i18n.t("text_analysis_subscribe"));
+
+      if (trialActivated) {
+        // Логируем автоматическую активацию триала
+        await logEvent(ctx.from.id, "telegram", "trial_activated", {
+          auto_activated: true,
+        });
+
+        // Получаем обновленную дату окончания премиума для уведомления
+        const updatedUser = await getUserByTelegramId(supabase, ctx.from.id);
+        if (updatedUser?.premium_expires_at) {
+          const trialEndDate = new Date(updatedUser.premium_expires_at);
+          await ctx.reply(
+            i18n.t("subscription_trial_auto_activated") + "\n\n" +
+              i18n.t("subscription_expires", {
+                date: trialEndDate.toLocaleDateString(
+                  userLanguage === "en" ? "en-US" : "ru-RU",
+                ),
+              }),
+          );
+        } else {
+          await ctx.reply(i18n.t("subscription_trial_auto_activated"));
+        }
+
+        // Повторно проверяем лимиты (теперь пользователь премиум)
+        const updatedLimits = await checkUserLimits(ctx.from.id, supabase);
+        if (updatedLimits.canAnalyzeText) {
+          // Продолжаем анализ, если теперь есть доступ
+          // (код продолжит выполнение после этого блока)
+        } else {
+          // Если все еще нет доступа - показываем сообщение
+          await ctx.reply(i18n.t("text_analysis_limit_reached"));
+          const ok = await replyWithAvailableSubscriptions(
+            ctx,
+            supabase,
+            i18n,
+          );
+          if (!ok) {
+            await ctx.reply(i18n.t("text_analysis_subscribe"));
+          }
+          return true;
+        }
+      } else {
+        // Триал недоступен - показываем сообщение о подписке
+        await ctx.reply(i18n.t("text_analysis_limit_reached"));
+        const ok = await replyWithAvailableSubscriptions(
+          ctx,
+          supabase,
+          i18n,
+        );
+        if (!ok) {
+          await ctx.reply(i18n.t("text_analysis_subscribe"));
+        }
+        return true;
       }
-      return true;
     } else {
       await ctx.reply(i18n.t("access_check_error"));
       return true;
