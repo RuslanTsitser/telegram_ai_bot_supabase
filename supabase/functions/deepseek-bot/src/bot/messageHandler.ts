@@ -12,6 +12,7 @@ import {
   updateUserLanguage,
   upsertUser,
 } from "../db/upsertUser.ts";
+import { insertWaterIntake } from "../db/waterIntake.ts";
 import { FoodAnalysisData } from "../interfaces/Database.ts";
 import { getImageUrlFromTelegram } from "../telegram/getImageUrlFromTelegram.ts";
 import {
@@ -222,6 +223,42 @@ export function setupBotHandlers(
         await ctx.answerCallbackQuery(newI18n.t("language_changed"));
       } else {
         await ctx.answerCallbackQuery(i18n.t("error"));
+      }
+      return;
+    }
+
+    // Обработка кнопок воды
+    if (
+      ctx.callbackQuery.data === "water_sips" ||
+      ctx.callbackQuery.data === "water_glass"
+    ) {
+      if (!ctx.from) {
+        await ctx.answerCallbackQuery(i18n.t("error"));
+        return;
+      }
+
+      const amount = ctx.callbackQuery.data === "water_sips" ? "sips" : "glass";
+      const success = await insertWaterIntake(supabase, ctx.from.id, amount);
+
+      if (success) {
+        // Удаляем сообщение-напоминание
+        try {
+          if (
+            ctx.callbackQuery.message &&
+            "message_id" in ctx.callbackQuery.message
+          ) {
+            await ctx.api.deleteMessage(
+              ctx.callbackQuery.message.chat.id,
+              ctx.callbackQuery.message.message_id,
+            );
+          }
+        } catch (error) {
+          console.error("Error deleting message:", error);
+          // Игнорируем ошибку удаления, так как это не критично
+        }
+        await ctx.answerCallbackQuery(i18n.t("water_recorded"));
+      } else {
+        await ctx.answerCallbackQuery(i18n.t("water_error"));
       }
       return;
     }

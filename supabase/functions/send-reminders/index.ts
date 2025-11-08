@@ -85,6 +85,9 @@ function getRandomMessage(type: "water" | "meal", language: string): string {
 async function sendTelegramMessage(
   telegramUserId: number,
   message: string,
+  replyMarkup?: {
+    inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
+  },
 ): Promise<boolean> {
   const botToken = Deno.env.get("PRODUCTION_BOT_TOKEN");
   if (!botToken) {
@@ -93,6 +96,23 @@ async function sendTelegramMessage(
   }
 
   try {
+    const payload: {
+      chat_id: number;
+      text: string;
+      parse_mode: string;
+      reply_markup?: {
+        inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
+      };
+    } = {
+      chat_id: telegramUserId,
+      text: message,
+      parse_mode: "HTML",
+    };
+
+    if (replyMarkup) {
+      payload.reply_markup = replyMarkup;
+    }
+
     const response = await fetch(
       `https://api.telegram.org/bot${botToken}/sendMessage`,
       {
@@ -100,11 +120,7 @@ async function sendTelegramMessage(
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          chat_id: telegramUserId,
-          text: message,
-          parse_mode: "HTML",
-        }),
+        body: JSON.stringify(payload),
       },
     );
 
@@ -246,10 +262,54 @@ async function processReminders(): Promise<void> {
         continue;
       }
 
-      const message = getRandomMessage(reminder.reminder_type, user.language);
+      let message = getRandomMessage(reminder.reminder_type, user.language);
+
+      // Добавляем инлайн-кнопки для напоминаний о воде
+      let replyMarkup: {
+        inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
+      } | undefined;
+
+      if (reminder.reminder_type === "water") {
+        // Добавляем пояснение к сообщению
+        const instructionTexts = {
+          ru: "\n\nСколько выпили? Нажмите кнопку ниже:",
+          en: "\n\nHow much did you drink? Click the button below:",
+        };
+
+        const instruction =
+          instructionTexts[user.language as keyof typeof instructionTexts] ||
+          instructionTexts.ru;
+        message = message + instruction;
+
+        // Тексты кнопок в зависимости от языка
+        // Используем нейтральную форму без рода для русского языка
+        const buttonTexts = {
+          ru: {
+            sips: "✅ Пару глотков",
+            glass: "✅ Стакан",
+          },
+          en: {
+            sips: "✅ Drank a few sips",
+            glass: "✅ Drank a glass",
+          },
+        };
+
+        const texts = buttonTexts[user.language as keyof typeof buttonTexts] ||
+          buttonTexts.ru;
+
+        // Размещаем кнопки в две строки для большей наглядности
+        replyMarkup = {
+          inline_keyboard: [
+            [{ text: texts.sips, callback_data: "water_sips" }],
+            [{ text: texts.glass, callback_data: "water_glass" }],
+          ],
+        };
+      }
+
       const success = await sendTelegramMessage(
         reminder.telegram_user_id,
         message,
+        replyMarkup,
       );
 
       // Записываем в историю

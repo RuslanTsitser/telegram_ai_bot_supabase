@@ -213,4 +213,10 @@ export const en = {
   subscription_trial_auto_activated:
     "🎉 You've reached the free request limit. Trial period automatically activated!",
   subscription_days: ["day", "days", "days"],
+
+  // Water
+  water_sips: "A few sips",
+  water_glass: "Glass",
+  water_recorded: "✅ Record added",
+  water_error: "❌ Error recording water",
 } as const;
