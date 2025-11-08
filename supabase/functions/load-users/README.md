@@ -3,11 +3,13 @@
 Функция для загрузки всех пользователей системы с пагинацией и сортировкой.
 
 ## Endpoint
+
 ```
 https://your-project.supabase.co/functions/v1/load-users
 ```
 
 ## Метод
+
 **GET** - получение всех пользователей системы
 
 ## Параметры запроса
@@ -53,6 +55,7 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-users?limit=50&o
       "created_at": "2024-01-15T10:30:00Z",
       "last_activity": "2024-01-20T15:45:00Z",
       "trial_used": true,
+      "used_promo": ["WELCOME2024", "SUMMER2024"],
       "promo": "WELCOME2024",
       "language": "ru",
       "traffic_source": "channel_name"
@@ -83,6 +86,7 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-users?limit=50&o
 | `created_at` | string | Дата регистрации |
 | `last_activity` | string | Дата последней активности (может быть null) |
 | `trial_used` | boolean | Использован ли пробный период |
+| `used_promo` | string[] | Массив использованных промо-кодов |
 | `promo` | string | Использованный промо-код |
 | `language` | string | Язык интерфейса (ru/en) |
 | `traffic_source` | string | Источник трафика (откуда пришел пользователь, например channel_name из команды /start). Может быть null |

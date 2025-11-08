@@ -12,6 +12,7 @@ interface User {
   created_at: string;
   last_activity: string | null;
   trial_used: boolean;
+  used_promo: string[];
   promo: string;
   language: string;
   traffic_source: string | null;
@@ -124,6 +125,7 @@ Deno.serve(async (req: Request) => {
         created_at,
         last_activity,
         trial_used,
+        used_promo,
         promo,
         language,
         traffic_source
