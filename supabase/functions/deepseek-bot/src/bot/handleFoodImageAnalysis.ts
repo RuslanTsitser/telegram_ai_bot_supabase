@@ -184,15 +184,13 @@ export async function handleFoodImageAnalysis(
         image_url: imageUrl || undefined,
         user_text: caption,
       };
-      const inserted = await insertFoodAnalysis(
+      await insertFoodAnalysis(
         supabase,
         foodAnalysisData,
       );
 
       // Обновляем стрики пользователя
-      if (inserted) {
-        await updateUserStreaks(supabase, ctx.from.id);
-      }
+      await updateUserStreaks(supabase, ctx.from.id);
 
       // Логируем успешный анализ изображения
       await logEvent(ctx.from.id, "telegram", "food_analysis_image", {

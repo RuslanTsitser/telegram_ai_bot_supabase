@@ -61,6 +61,7 @@ export async function updateUserStreaks(
   supabase: SupabaseClient,
   userId: number,
 ): Promise<void> {
+  console.log(`[updateUserStreaks] Called for user ${userId}`);
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -86,6 +87,9 @@ export async function updateUserStreaks(
     // Если это не первый анализ сегодня (уже есть записи) - пропускаем обновление
     // Стрик уже был обновлен при первом анализе сегодня
     if (todayCount && todayCount > 1) {
+      console.log(
+        `Streak not updated for user ${userId}: not the first analysis today (count: ${todayCount})`,
+      );
       return;
     }
 
@@ -156,6 +160,10 @@ export async function updateUserStreaks(
 
     if (updateError) {
       console.error("Error updating user streaks:", updateError);
+    } else {
+      console.log(
+        `Streak updated for user ${userId}: current_streak=${newCurrentStreak} (was ${currentStreak}), longest_streak=${newLongestStreak} (was ${longestStreak})`,
+      );
     }
   } catch (error) {
     console.error("Unexpected error updating streaks:", error);

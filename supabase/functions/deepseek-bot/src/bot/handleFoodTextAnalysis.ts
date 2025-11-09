@@ -233,15 +233,13 @@ export async function handleFoodTextAnalysis(
         has_image: false,
         user_text: ctx.message.text,
       };
-      const inserted = await insertFoodAnalysis(
+      await insertFoodAnalysis(
         supabase,
         foodAnalysisData,
       );
 
       // Обновляем стрики пользователя
-      if (inserted) {
-        await updateUserStreaks(supabase, ctx.from.id);
-      }
+      await updateUserStreaks(supabase, ctx.from.id);
 
       // Логируем успешный анализ текста
       await logEvent(ctx.from.id, "telegram", "food_analysis_text", {

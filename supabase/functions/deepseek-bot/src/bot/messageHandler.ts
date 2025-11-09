@@ -448,11 +448,9 @@ export function setupBotHandlers(
             has_image: true,
           };
 
-          const upserted = await upsertFoodAnalysis(supabase, foodAnalysisData);
+          await upsertFoodAnalysis(supabase, foodAnalysisData);
           // Обновляем стрики пользователя
-          if (upserted) {
-            await updateUserStreaks(supabase, edited.from.id);
-          }
+          await updateUserStreaks(supabase, edited.from.id);
         }
       }
     } else if (edited.text) {
@@ -500,14 +498,12 @@ export function setupBotHandlers(
             user_text: edited.text || "",
             has_image: false,
           };
-          const upserted = await upsertFoodAnalysis(
+          await upsertFoodAnalysis(
             supabase,
             foodAnalysisData,
           );
           // Обновляем стрики пользователя
-          if (upserted) {
-            await updateUserStreaks(supabase, edited.from.id);
-          }
+          await updateUserStreaks(supabase, edited.from.id);
         }
       }
     }
