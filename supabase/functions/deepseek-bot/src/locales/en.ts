@@ -219,4 +219,8 @@ export const en = {
   water_glass: "Glass",
   water_recorded: "✅ Record added",
   water_error: "❌ Error recording water",
+
+  // Analysis feedback
+  analysis_like: "👍 Like",
+  analysis_dislike: "👎 Dislike",
 } as const;

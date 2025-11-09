@@ -130,9 +130,21 @@ export async function handleFoodImageAnalysis(
 
   const messageText = formatFoodAnalysisMessage(response, userLanguage);
 
+  // Создаем инлайн кнопки для оценки анализа
+  const replyMarkup = {
+    inline_keyboard: [
+      [
+        { text: i18n.t("analysis_like"), callback_data: "analysis_like" },
+        { text: i18n.t("analysis_dislike"), callback_data: "analysis_dislike" },
+      ],
+    ],
+  };
+
   let sentMessage;
   if (chatType === "private") {
-    sentMessage = await ctx.reply(messageText);
+    sentMessage = await ctx.reply(messageText, {
+      reply_markup: replyMarkup,
+    });
   }
 
   console.log("sentMessage food image", sentMessage);

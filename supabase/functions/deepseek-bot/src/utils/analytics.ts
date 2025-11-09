@@ -17,7 +17,8 @@ export type EventType =
   | "limit_reached"
   | "profile_updated"
   | "support_mode_activated"
-  | "water_intake_recorded";
+  | "water_intake_recorded"
+  | "analysis_feedback";
 
 export interface EventProperties {
   [key: string]: string | number | boolean | null | undefined;

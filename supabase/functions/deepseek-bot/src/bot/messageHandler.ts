@@ -269,6 +269,46 @@ export function setupBotHandlers(
       return;
     }
 
+    // Обработка кнопок оценки анализа (лайк/дизлайк)
+    if (
+      ctx.callbackQuery.data === "analysis_like" ||
+      ctx.callbackQuery.data === "analysis_dislike"
+    ) {
+      if (!ctx.from) {
+        await ctx.answerCallbackQuery(i18n.t("error"));
+        return;
+      }
+
+      const feedback = ctx.callbackQuery.data === "analysis_like"
+        ? "like"
+        : "dislike";
+
+      // Удаляем кнопки из сообщения
+      try {
+        if (
+          ctx.callbackQuery.message &&
+          "message_id" in ctx.callbackQuery.message
+        ) {
+          await ctx.api.editMessageReplyMarkup(
+            ctx.callbackQuery.message.chat.id,
+            ctx.callbackQuery.message.message_id,
+            { reply_markup: { inline_keyboard: [] } },
+          );
+        }
+      } catch (error) {
+        console.error("Error removing buttons:", error);
+        // Игнорируем ошибку удаления кнопок, так как это не критично
+      }
+
+      // Логируем событие
+      await logEvent(ctx.from.id, "telegram", "analysis_feedback", {
+        feedback: feedback,
+      });
+
+      await ctx.answerCallbackQuery();
+      return;
+    }
+
     if (
       ctx.callbackQuery.data?.startsWith("subscription_") ||
       ctx.callbackQuery.data?.startsWith("subscription_test_")
@@ -383,8 +423,9 @@ export function setupBotHandlers(
     // Обрабатываем пользователя при каждом сообщении
     await upsertUser(ctx, supabase);
 
-    // Получаем язык пользователя (для будущего использования)
+    // Получаем язык пользователя и создаем i18n экземпляр
     const _userLanguage = await getUserLanguage(supabase, ctx.from.id);
+    const _i18n = createI18n(_userLanguage);
 
     // Handle edited photo caption
     if (edited.photo) {
@@ -406,6 +447,19 @@ export function setupBotHandlers(
 
       const messageText = formatFoodAnalysisMessage(response, _userLanguage);
 
+      // Создаем инлайн кнопки для оценки анализа
+      const replyMarkup = {
+        inline_keyboard: [
+          [
+            { text: _i18n.t("analysis_like"), callback_data: "analysis_like" },
+            {
+              text: _i18n.t("analysis_dislike"),
+              callback_data: "analysis_dislike",
+            },
+          ],
+        ],
+      };
+
       const { data } = await getBotMessageId(
         supabase,
         edited.message_id,
@@ -418,6 +472,9 @@ export function setupBotHandlers(
           edited.chat.id,
           data.bot_message_id,
           messageText,
+          {
+            reply_markup: replyMarkup,
+          },
         );
 
         // Update or insert food analysis data
@@ -463,6 +520,19 @@ export function setupBotHandlers(
 
       const messageText = formatFoodAnalysisMessage(response, _userLanguage);
 
+      // Создаем инлайн кнопки для оценки анализа
+      const replyMarkup = {
+        inline_keyboard: [
+          [
+            { text: _i18n.t("analysis_like"), callback_data: "analysis_like" },
+            {
+              text: _i18n.t("analysis_dislike"),
+              callback_data: "analysis_dislike",
+            },
+          ],
+        ],
+      };
+
       const { data } = await getBotMessageId(
         supabase,
         edited.message_id,
@@ -475,6 +545,9 @@ export function setupBotHandlers(
           edited.chat.id,
           data.bot_message_id,
           messageText,
+          {
+            reply_markup: replyMarkup,
+          },
         );
 
         // Update or insert food analysis data
