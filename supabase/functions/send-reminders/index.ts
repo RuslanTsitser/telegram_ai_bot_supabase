@@ -24,6 +24,7 @@ interface User {
   first_name?: string;
   last_name?: string;
   language: string;
+  is_active: boolean;
 }
 
 // Сообщения для напоминаний
@@ -81,6 +82,36 @@ function getRandomMessage(type: "water" | "meal", language: string): string {
   return langMessages[Math.floor(Math.random() * langMessages.length)];
 }
 
+// Результат отправки сообщения
+interface SendMessageResult {
+  success: boolean;
+  isBlocked: boolean; // true если пользователь заблокировал бота (ошибка 403)
+}
+
+// Функция для пометки пользователя как неактивного
+async function markUserAsInactive(telegramUserId: number): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from("users")
+      .update({ is_active: false })
+      .eq("telegram_user_id", telegramUserId);
+
+    if (error) {
+      console.error(
+        `Failed to mark user ${telegramUserId} as inactive:`,
+        error,
+      );
+    } else {
+      console.log(`User ${telegramUserId} marked as inactive (bot blocked)`);
+    }
+  } catch (error) {
+    console.error(
+      `Error marking user ${telegramUserId} as inactive:`,
+      error,
+    );
+  }
+}
+
 // Функция для отправки сообщения в Telegram
 async function sendTelegramMessage(
   telegramUserId: number,
@@ -88,11 +119,11 @@ async function sendTelegramMessage(
   replyMarkup?: {
     inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
   },
-): Promise<boolean> {
+): Promise<SendMessageResult> {
   const botToken = Deno.env.get("PRODUCTION_BOT_TOKEN");
   if (!botToken) {
     console.error("PRODUCTION_BOT_TOKEN not found");
-    return false;
+    return { success: false, isBlocked: false };
   }
 
   try {
@@ -127,13 +158,23 @@ async function sendTelegramMessage(
     if (!response.ok) {
       const errorData = await response.json();
       console.error(`Failed to send message to ${telegramUserId}:`, errorData);
-      return false;
+
+      // Проверяем, является ли ошибка блокировкой бота (403)
+      const isBlocked = errorData.error_code === 403;
+
+      if (isBlocked) {
+        // Помечаем пользователя как неактивного
+        await markUserAsInactive(telegramUserId);
+        return { success: false, isBlocked: true };
+      }
+
+      return { success: false, isBlocked: false };
     }
 
-    return true;
+    return { success: true, isBlocked: false };
   } catch (error) {
     console.error(`Error sending message to ${telegramUserId}:`, error);
-    return false;
+    return { success: false, isBlocked: false };
   }
 }
 
@@ -323,7 +364,7 @@ async function processReminders(): Promise<void> {
     const userIds = [...new Set(reminders.map((r) => r.telegram_user_id))];
     const { data: users, error: usersError } = await supabase
       .from("users")
-      .select("telegram_user_id, first_name, last_name, language")
+      .select("telegram_user_id, first_name, last_name, language, is_active")
       .in("telegram_user_id", userIds);
 
     if (usersError) {
@@ -402,6 +443,14 @@ async function processReminders(): Promise<void> {
         continue;
       }
 
+      // Пропускаем неактивных пользователей (заблокировавших бота)
+      if (!user.is_active) {
+        console.log(
+          `Skipping reminder for user ${reminder.telegram_user_id} - user is inactive (bot blocked)`,
+        );
+        continue;
+      }
+
       let message = getRandomMessage(reminder.reminder_type, user.language);
 
       // Добавляем инлайн-кнопки для напоминаний о воде
@@ -446,25 +495,34 @@ async function processReminders(): Promise<void> {
         };
       }
 
-      const success = await sendTelegramMessage(
+      const result = await sendTelegramMessage(
         reminder.telegram_user_id,
         message,
         replyMarkup,
       );
 
       // Записываем в историю
+      const status = result.isBlocked
+        ? "blocked"
+        : result.success
+        ? "sent"
+        : "failed";
       await supabase
         .from("reminder_history")
         .insert({
           telegram_user_id: reminder.telegram_user_id,
           reminder_type: reminder.reminder_type,
-          status: success ? "sent" : "failed",
+          status: status,
           reminder_id: reminder.id,
-          error_message: success ? null : "Failed to send message",
+          error_message: result.success
+            ? null
+            : result.isBlocked
+            ? "Bot was blocked by the user"
+            : "Failed to send message",
         });
 
       // Обновляем время последней отправки
-      if (success) {
+      if (result.success) {
         await supabase
           .from("user_reminders")
           .update({ last_sent_at: new Date().toISOString() })
@@ -476,9 +534,15 @@ async function processReminders(): Promise<void> {
         );
       } else {
         failedCount++;
-        console.error(
-          `Failed to send ${reminder.reminder_type} reminder to user ${reminder.telegram_user_id}`,
-        );
+        if (result.isBlocked) {
+          console.log(
+            `User ${reminder.telegram_user_id} blocked the bot - marked as inactive`,
+          );
+        } else {
+          console.error(
+            `Failed to send ${reminder.reminder_type} reminder to user ${reminder.telegram_user_id}`,
+          );
+        }
       }
 
       // Небольшая задержка между отправками
