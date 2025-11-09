@@ -17,7 +17,7 @@ https://your-project.supabase.co/functions/v1/load-daily-calories
 | Параметр | Тип | Обязательный | Описание |
 |----------|-----|--------------|----------|
 | `user_id` | number | ❌ | ID пользователя в Telegram. Если не указан, возвращаются данные для всех пользователей |
-| `cursor` | string | ❌ | Курсор для пагинации (дата в формате YYYY-MM-DD). Используется для получения следующей страницы |
+| `cursor` | string | ❌ | Курсор для пагинации (дата в формате ISO 8601). Используется для получения следующей страницы |
 | `limit` | number | ❌ | Количество дней на странице (по умолчанию: 30, максимум: 100) |
 
 ## Пример запроса (GET)
@@ -39,7 +39,7 @@ curl -X POST "https://your-project.supabase.co/functions/v1/load-daily-calories"
 ## Пример запроса с курсором (следующая страница)
 
 ```bash
-curl -X GET "https://your-project.supabase.co/functions/v1/load-daily-calories?user_id=123456789&cursor=2024-01-15&limit=30" \
+curl -X GET "https://your-project.supabase.co/functions/v1/load-daily-calories?user_id=123456789&cursor=2024-01-15T00:00:00.000Z&limit=30" \
   -H "Authorization: Bearer YOUR_ANON_KEY"
 ```
 
@@ -50,20 +50,20 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-daily-calories?u
   "success": true,
   "data": [
     {
-      "date": "2024-01-20",
+      "date": "2024-01-20T00:00:00.000Z",
       "calories": 2150.5
     },
     {
-      "date": "2024-01-19",
+      "date": "2024-01-19T00:00:00.000Z",
       "calories": 1980.2
     },
     {
-      "date": "2024-01-18",
+      "date": "2024-01-18T00:00:00.000Z",
       "calories": 2234.8
     }
   ],
   "cursor": null,
-  "next_cursor": "2024-01-18",
+  "next_cursor": "2024-01-18T00:00:00.000Z",
   "limit": 30,
   "has_more": true
 }
@@ -75,10 +75,10 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-daily-calories?u
 |------|-----|----------|
 | `success` | boolean | Успешность запроса |
 | `data` | array | Массив объектов с данными о днях |
-| `data[].date` | string | Дата в формате YYYY-MM-DD |
+| `data[].date` | string | Дата в формате ISO 8601 (YYYY-MM-DDTHH:mm:ss.sssZ) |
 | `data[].calories` | number | Сумма калорий за этот день (округлено до 2 знаков) |
-| `cursor` | string \| null | Текущий курсор (дата, с которой началась выборка) |
-| `next_cursor` | string \| null | Курсор для следующей страницы (дата последнего элемента). Если `null`, значит больше нет данных |
+| `cursor` | string \| null | Текущий курсор (дата в формате ISO 8601, с которой началась выборка) |
+| `next_cursor` | string \| null | Курсор для следующей страницы (дата в формате ISO 8601 последнего элемента). Если `null`, значит больше нет данных |
 | `limit` | number | Количество дней на странице |
 | `has_more` | boolean | Есть ли еще данные для загрузки |
 
@@ -92,7 +92,7 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-daily-calories?u
 
 ### Курсорная пагинация
 
-- Курсор - это дата в формате `YYYY-MM-DD`
+- Курсор - это дата в формате ISO 8601 (`YYYY-MM-DDTHH:mm:ss.sssZ`)
 - Для получения следующей страницы используйте значение `next_cursor` из предыдущего ответа
 - Данные сортируются по дате по убыванию (от новых к старым)
 - Если `next_cursor` равен `null`, значит больше нет данных

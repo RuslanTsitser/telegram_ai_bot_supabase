@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 interface DailyCalories {
-  date: string; // Дата в формате YYYY-MM-DD
+  date: string; // Дата в формате ISO 8601 (YYYY-MM-DDTHH:mm:ss.sssZ)
   calories: number; // Сумма калорий за день
 }
 
@@ -85,7 +85,7 @@ Deno.serve(async (req: Request) => {
 
     // Если есть курсор, фильтруем по дате (берем записи с датой меньше курсора)
     if (cursor) {
-      // Курсор - это дата в формате YYYY-MM-DD
+      // Курсор - это дата в формате ISO 8601
       // Берем записи, где дата меньше курсора (для сортировки по убыванию)
       const cursorDate = new Date(cursor);
       cursorDate.setHours(23, 59, 59, 999); // Конец дня курсора
@@ -121,7 +121,12 @@ Deno.serve(async (req: Request) => {
         if (!item.created_at) continue;
 
         const date = new Date(item.created_at);
-        const dateStr = date.toISOString().split("T")[0]; // YYYY-MM-DD
+        // Получаем дату в формате YYYY-MM-DD для группировки
+        const dateKey = date.toISOString().split("T")[0];
+        
+        // Создаем ISO дату для начала дня (00:00:00.000Z)
+        const dayStart = new Date(dateKey + "T00:00:00.000Z");
+        const dateStr = dayStart.toISOString(); // Полный ISO формат
 
         const currentCalories = dailyTotals.get(dateStr) || 0;
         dailyTotals.set(
