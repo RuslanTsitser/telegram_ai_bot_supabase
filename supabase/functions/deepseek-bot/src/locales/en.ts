@@ -141,6 +141,10 @@ export const en = {
   nutrition_score_max: "/10",
   recommendations: "💡 Recommendations:",
 
+  // Activity analysis formatting
+  activity_description_emoji: "🏃 ",
+  calories_burned: "🔥 Calories burned: ",
+
   // Onboarding
   onboarding_welcome: "👋 Hello! I'm a nutrition analysis bot.",
   onboarding_description:

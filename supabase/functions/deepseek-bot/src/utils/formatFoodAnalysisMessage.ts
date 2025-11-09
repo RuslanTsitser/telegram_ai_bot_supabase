@@ -11,6 +11,16 @@ export function formatFoodAnalysisMessage(
 
   const i18n = createI18n(languageCode);
 
+  // Для физической активности показываем только описание, калории и рекомендации
+  if (response.content_type === "activity") {
+    return `${
+      i18n.t("activity_description_emoji")
+    }${response.description}\n\n` +
+      `${i18n.t("calories_burned")}${response.calories} ${i18n.t("kcal")}\n\n` +
+      `${i18n.t("recommendations")}\n${response.recommendation}`;
+  }
+
+  // Для еды показываем полную информацию
   return `${i18n.t("food_description_emoji")}${response.description}\n\n` +
     `${i18n.t("nutrition_title")}\n` +
     `${i18n.t("estimated_weight")}${response.mass} ${i18n.t("g")}\n` +

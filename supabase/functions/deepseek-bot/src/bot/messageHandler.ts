@@ -4,6 +4,7 @@ import { handleFoodImage } from "../ai/handleFoodImage.ts";
 import { BotConfig } from "../config/botConfig.ts";
 import { updateUserStreaks, upsertFoodAnalysis } from "../db/foodAnalysis.ts";
 import { getBotMessageId } from "../db/messageRelationships.ts";
+import { upsertPhysicalActivity } from "../db/physicalActivity.ts";
 import { processSuccessfulPayment } from "../db/processSuccessfulPayment.ts";
 import { getSubscriptionPlanById } from "../db/subscriptions.ts";
 import {
@@ -12,8 +13,12 @@ import {
   updateUserLanguage,
   upsertUser,
 } from "../db/upsertUser.ts";
+import { getUserProfile } from "../db/userProfile.ts";
 import { insertWaterIntake } from "../db/waterIntake.ts";
-import { FoodAnalysisData } from "../interfaces/Database.ts";
+import {
+  FoodAnalysisData,
+  PhysicalActivityData,
+} from "../interfaces/Database.ts";
 import { getImageUrlFromTelegram } from "../telegram/getImageUrlFromTelegram.ts";
 import {
   createSubscriptionInvoice,
@@ -438,11 +443,22 @@ export function setupBotHandlers(
       }));
       const optimalPhoto = selectOptimalPhoto(photoSizes);
 
+      // Получаем профиль пользователя для расчета калорий при активности
+      const userProfile = await getUserProfile(supabase, edited.from.id);
+
       const response = await handleFoodImage(
         optimalPhoto.file_id,
         caption,
         config.token,
         _userLanguage,
+        userProfile
+          ? {
+            height_cm: userProfile.height_cm,
+            weight_kg: userProfile.weight_kg,
+            gender: userProfile.gender,
+            birth_year: userProfile.birth_year,
+          }
+          : null,
       );
 
       const messageText = formatFoodAnalysisMessage(response, _userLanguage);
@@ -477,45 +493,78 @@ export function setupBotHandlers(
           },
         );
 
-        // Update or insert food analysis data
+        // Update or insert analysis data (food or activity)
         if (!response.error) {
-          const imageUrl = await getImageUrlFromTelegram(
-            optimalPhoto.file_id,
-            config.token,
-          );
-          const foodAnalysisData: FoodAnalysisData = {
-            chat_id: edited.chat.id,
-            user_id: edited.from.id,
-            message_id: edited.message_id,
-            bot_id: config.id,
-            description: response.description,
-            mass: response.mass,
-            calories: response.calories,
-            protein: response.protein,
-            carbs: response.carbs,
-            sugar: response.sugar,
-            fats: response.fats,
-            saturated_fats: response.saturated_fats,
-            fiber: response.fiber,
-            nutrition_score: response.nutrition_score,
-            recommendation: response.recommendation,
-            image_file_id: optimalPhoto.file_id,
-            image_url: imageUrl || undefined,
-            user_text: caption,
-            has_image: true,
-          };
-
-          await upsertFoodAnalysis(supabase, foodAnalysisData);
-          // Обновляем стрики пользователя
-          await updateUserStreaks(supabase, edited.from.id);
+          if (response.content_type === "activity") {
+            // Сохраняем физическую активность
+            const imageUrl = await getImageUrlFromTelegram(
+              optimalPhoto.file_id,
+              config.token,
+            );
+            const activityData: PhysicalActivityData = {
+              chat_id: edited.chat.id,
+              user_id: edited.from.id,
+              message_id: edited.message_id,
+              bot_id: config.id,
+              description: response.description,
+              calories: response.calories,
+              recommendation: response.recommendation,
+              has_image: true,
+              image_file_id: optimalPhoto.file_id,
+              image_url: imageUrl || undefined,
+              user_text: caption,
+            };
+            await upsertPhysicalActivity(supabase, activityData);
+          } else {
+            // Сохраняем анализ еды
+            const imageUrl = await getImageUrlFromTelegram(
+              optimalPhoto.file_id,
+              config.token,
+            );
+            const foodAnalysisData: FoodAnalysisData = {
+              chat_id: edited.chat.id,
+              user_id: edited.from.id,
+              message_id: edited.message_id,
+              bot_id: config.id,
+              description: response.description,
+              mass: response.mass,
+              calories: response.calories,
+              protein: response.protein,
+              carbs: response.carbs,
+              sugar: response.sugar,
+              fats: response.fats,
+              saturated_fats: response.saturated_fats,
+              fiber: response.fiber,
+              nutrition_score: response.nutrition_score,
+              recommendation: response.recommendation,
+              image_file_id: optimalPhoto.file_id,
+              image_url: imageUrl || undefined,
+              user_text: caption,
+              has_image: true,
+            };
+            await upsertFoodAnalysis(supabase, foodAnalysisData);
+            // Обновляем стрики пользователя
+            await updateUserStreaks(supabase, edited.from.id);
+          }
         }
       }
     } else if (edited.text) {
+      // Получаем профиль пользователя для расчета калорий при активности
+      const userProfile = await getUserProfile(supabase, edited.from.id);
+
       const response = await handleFoodImage(
         null,
         edited.text || "",
         config.token,
         _userLanguage,
+        userProfile
+          ? {
+            height_cm: userProfile.height_cm,
+            weight_kg: userProfile.weight_kg,
+            gender: userProfile.gender,
+            birth_year: userProfile.birth_year,
+          }
+          : null,
       );
 
       const messageText = formatFoodAnalysisMessage(response, _userLanguage);
@@ -550,33 +599,47 @@ export function setupBotHandlers(
           },
         );
 
-        // Update or insert food analysis data
+        // Update or insert analysis data (food or activity)
         if (!response.error) {
-          const foodAnalysisData: FoodAnalysisData = {
-            chat_id: edited.chat.id,
-            user_id: edited.from.id,
-            message_id: edited.message_id,
-            bot_id: config.id,
-            description: response.description,
-            mass: response.mass,
-            calories: response.calories,
-            protein: response.protein,
-            carbs: response.carbs,
-            sugar: response.sugar,
-            fats: response.fats,
-            saturated_fats: response.saturated_fats,
-            fiber: response.fiber,
-            nutrition_score: response.nutrition_score,
-            recommendation: response.recommendation,
-            user_text: edited.text || "",
-            has_image: false,
-          };
-          await upsertFoodAnalysis(
-            supabase,
-            foodAnalysisData,
-          );
-          // Обновляем стрики пользователя
-          await updateUserStreaks(supabase, edited.from.id);
+          if (response.content_type === "activity") {
+            // Сохраняем физическую активность
+            const activityData: PhysicalActivityData = {
+              chat_id: edited.chat.id,
+              user_id: edited.from.id,
+              message_id: edited.message_id,
+              bot_id: config.id,
+              description: response.description,
+              calories: response.calories,
+              recommendation: response.recommendation,
+              has_image: false,
+              user_text: edited.text || "",
+            };
+            await upsertPhysicalActivity(supabase, activityData);
+          } else {
+            // Сохраняем анализ еды
+            const foodAnalysisData: FoodAnalysisData = {
+              chat_id: edited.chat.id,
+              user_id: edited.from.id,
+              message_id: edited.message_id,
+              bot_id: config.id,
+              description: response.description,
+              mass: response.mass,
+              calories: response.calories,
+              protein: response.protein,
+              carbs: response.carbs,
+              sugar: response.sugar,
+              fats: response.fats,
+              saturated_fats: response.saturated_fats,
+              fiber: response.fiber,
+              nutrition_score: response.nutrition_score,
+              recommendation: response.recommendation,
+              user_text: edited.text || "",
+              has_image: false,
+            };
+            await upsertFoodAnalysis(supabase, foodAnalysisData);
+            // Обновляем стрики пользователя
+            await updateUserStreaks(supabase, edited.from.id);
+          }
         }
       }
     }

@@ -5,6 +5,18 @@ export async function insertFoodAnalysis(
   supabase: SupabaseClient,
   analysisData: FoodAnalysisData,
 ): Promise<FoodAnalysisData | null> {
+  // Удаляем запись из physical_activities, если она существует (на случай изменения типа контента)
+  const { error: deleteError } = await supabase
+    .from("physical_activities")
+    .delete()
+    .eq("message_id", analysisData.message_id)
+    .eq("chat_id", analysisData.chat_id)
+    .eq("bot_id", analysisData.bot_id);
+
+  if (deleteError) {
+    console.error("Error deleting physical activity:", deleteError);
+  }
+
   const { data, error } = await supabase
     .from("food_analysis")
     .insert(analysisData);
@@ -21,6 +33,18 @@ export async function upsertFoodAnalysis(
   supabase: SupabaseClient,
   analysisData: FoodAnalysisData,
 ): Promise<FoodAnalysisData | null> {
+  // Удаляем запись из physical_activities, если она существует (на случай изменения типа контента)
+  const { error: deleteError } = await supabase
+    .from("physical_activities")
+    .delete()
+    .eq("message_id", analysisData.message_id)
+    .eq("chat_id", analysisData.chat_id)
+    .eq("bot_id", analysisData.bot_id);
+
+  if (deleteError) {
+    console.error("Error deleting physical activity:", deleteError);
+  }
+
   const { data, error } = await supabase
     .from("food_analysis")
     .upsert(analysisData, {

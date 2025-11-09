@@ -9,6 +9,8 @@ export type EventType =
   | "onboarding_message_sent"
   | "food_analysis_text"
   | "food_analysis_image"
+  | "physical_activity_text"
+  | "physical_activity_image"
   | "subscription_purchased"
   | "subscription_viewed"
   | "subscription_invoice_created"

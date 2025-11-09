@@ -4,6 +4,7 @@ import { handleFoodImage } from "../ai/handleFoodImage.ts";
 import { BotConfig } from "../config/botConfig.ts";
 import { insertFoodAnalysis, updateUserStreaks } from "../db/foodAnalysis.ts";
 import { insertMessageRelationship } from "../db/messageRelationships.ts";
+import { insertPhysicalActivity } from "../db/physicalActivity.ts";
 import { createReminderIfNeeded } from "../db/reminders.ts";
 import { getSubscriptionPlanByPromoCode } from "../db/subscriptions.ts";
 import {
@@ -13,9 +14,11 @@ import {
   updateUserPromo,
 } from "../db/upsertUser.ts";
 import { checkUserLimits } from "../db/userLimits.ts";
+import { getUserProfile } from "../db/userProfile.ts";
 import {
   FoodAnalysisData,
   MessageRelationship,
+  PhysicalActivityData,
 } from "../interfaces/Database.ts";
 import { replyWithAvailableSubscriptions } from "../telegram/subscriptionHandlers.ts";
 import { logEvent } from "../utils/analytics.ts";
@@ -176,11 +179,23 @@ export async function handleFoodTextAnalysis(
   }
 
   console.log("received food text for analysis", chatType);
+
+  // Получаем профиль пользователя для расчета калорий при активности
+  const userProfile = await getUserProfile(supabase, ctx.from.id);
+
   const response = await handleFoodImage(
     null,
     ctx.message.text,
     config.token,
     userLanguage,
+    userProfile
+      ? {
+        height_cm: userProfile.height_cm,
+        weight_kg: userProfile.weight_kg,
+        gender: userProfile.gender,
+        birth_year: userProfile.birth_year,
+      }
+      : null,
   );
 
   const messageText = formatFoodAnalysisMessage(response, userLanguage);
@@ -224,44 +239,64 @@ export async function handleFoodTextAnalysis(
       error,
     );
 
-    // Store food analysis data
+    // Store analysis data (food or activity)
     if (!response.error) {
-      const foodAnalysisData: FoodAnalysisData = {
-        chat_id: ctx.chat.id,
-        user_id: ctx.from.id,
-        message_id: ctx.message.message_id,
-        bot_id: config.id,
-        description: response.description,
-        mass: response.mass,
-        calories: response.calories,
-        protein: response.protein,
-        carbs: response.carbs,
-        sugar: response.sugar,
-        fats: response.fats,
-        saturated_fats: response.saturated_fats,
-        fiber: response.fiber,
-        nutrition_score: response.nutrition_score,
-        recommendation: response.recommendation,
-        has_image: false,
-        user_text: ctx.message.text,
-      };
-      await insertFoodAnalysis(
-        supabase,
-        foodAnalysisData,
-      );
+      if (response.content_type === "activity") {
+        // Сохраняем физическую активность
+        const activityData: PhysicalActivityData = {
+          chat_id: ctx.chat.id,
+          user_id: ctx.from.id,
+          message_id: ctx.message.message_id,
+          bot_id: config.id,
+          description: response.description,
+          calories: response.calories,
+          recommendation: response.recommendation,
+          has_image: false,
+          user_text: ctx.message.text,
+        };
+        await insertPhysicalActivity(supabase, activityData);
 
-      // Обновляем стрики пользователя
-      await updateUserStreaks(supabase, ctx.from.id);
+        // Логируем успешный анализ активности
+        await logEvent(ctx.from.id, "telegram", "physical_activity_text", {
+          has_error: false,
+          calories: response.calories,
+        });
+      } else {
+        // Сохраняем анализ еды
+        const foodAnalysisData: FoodAnalysisData = {
+          chat_id: ctx.chat.id,
+          user_id: ctx.from.id,
+          message_id: ctx.message.message_id,
+          bot_id: config.id,
+          description: response.description,
+          mass: response.mass,
+          calories: response.calories,
+          protein: response.protein,
+          carbs: response.carbs,
+          sugar: response.sugar,
+          fats: response.fats,
+          saturated_fats: response.saturated_fats,
+          fiber: response.fiber,
+          nutrition_score: response.nutrition_score,
+          recommendation: response.recommendation,
+          has_image: false,
+          user_text: ctx.message.text,
+        };
+        await insertFoodAnalysis(supabase, foodAnalysisData);
 
-      // Логируем успешный анализ текста
-      await logEvent(ctx.from.id, "telegram", "food_analysis_text", {
-        has_error: false,
-        calories: response.calories,
-        nutrition_score: response.nutrition_score,
-      });
+        // Обновляем стрики пользователя
+        await updateUserStreaks(supabase, ctx.from.id);
 
-      // Создаем напоминание о еде, если у пользователя его еще нет
-      await createReminderIfNeeded(supabase, ctx.from.id);
+        // Логируем успешный анализ текста
+        await logEvent(ctx.from.id, "telegram", "food_analysis_text", {
+          has_error: false,
+          calories: response.calories,
+          nutrition_score: response.nutrition_score,
+        });
+
+        // Создаем напоминание о еде, если у пользователя его еще нет
+        await createReminderIfNeeded(supabase, ctx.from.id);
+      }
     } else {
       // Логируем ошибку анализа
       await logEvent(ctx.from.id, "telegram", "food_analysis_text", {

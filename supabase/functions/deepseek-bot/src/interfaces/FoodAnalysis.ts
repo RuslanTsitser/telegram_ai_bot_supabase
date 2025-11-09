@@ -1,4 +1,5 @@
 export interface FoodAnalysis {
+  content_type?: "food" | "activity";
   description: string;
   mass: number;
   calories: number;

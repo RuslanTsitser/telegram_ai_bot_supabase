@@ -143,6 +143,10 @@ export const ru = {
   nutrition_score_max: "/10",
   recommendations: "💡 Рекомендации:",
 
+  // Форматирование анализа активности
+  activity_description_emoji: "🏃 ",
+  calories_burned: "🔥 Потрачено калорий: ",
+
   // Onboarding
   onboarding_welcome: "👋 Привет! Я бот для анализа питания.",
   onboarding_description:

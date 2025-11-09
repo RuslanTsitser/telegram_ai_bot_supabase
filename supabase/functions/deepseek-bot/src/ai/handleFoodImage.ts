@@ -8,6 +8,12 @@ export async function handleFoodImage(
   userText: string | null,
   botToken: string,
   languageCode: string = "ru",
+  userProfile?: {
+    height_cm: number | null;
+    weight_kg: number | null;
+    gender: number | null;
+    birth_year: number | null;
+  } | null,
 ): Promise<FoodAnalysis> {
   try {
     console.log("handleFoodImage", fileId, userText, botToken);
@@ -44,7 +50,7 @@ export async function handleFoodImage(
       };
     }
 
-    const systemPrompt = getFoodImagePrompt(languageCode);
+    const systemPrompt = getFoodImagePrompt(languageCode, userProfile);
 
     const messages = [
       {

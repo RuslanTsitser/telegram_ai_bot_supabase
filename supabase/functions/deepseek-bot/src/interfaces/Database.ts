@@ -29,6 +29,20 @@ export interface FoodAnalysisData {
   user_text: string;
 }
 
+export interface PhysicalActivityData {
+  chat_id: number;
+  user_id: number;
+  message_id: number;
+  bot_id: string;
+  description: string;
+  calories: number;
+  recommendation: string;
+  has_image: boolean;
+  image_file_id?: string;
+  image_url?: string;
+  user_text: string;
+}
+
 // Интерфейсы для платежной системы
 export interface SubscriptionPlan {
   id: string;
