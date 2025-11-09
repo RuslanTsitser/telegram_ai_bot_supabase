@@ -18,6 +18,8 @@ interface UserStats {
   total_water_intake: number;
   total_water_ml: number;
   avg_daily_water: number | null;
+  current_streak: number;
+  longest_streak: number;
 }
 
 Deno.serve(async (req: Request) => {
@@ -104,6 +106,7 @@ Deno.serve(async (req: Request) => {
     const [
       { data: analyses, error: analysesError },
       { data: waterIntakes, error: waterIntakesError },
+      { data: userProfile, error: profileError },
     ] = await Promise.all([
       supabase
         .from("food_analysis")
@@ -115,6 +118,11 @@ Deno.serve(async (req: Request) => {
         .select("*")
         .eq("telegram_user_id", user_id)
         .order("created_at", { ascending: true }),
+      supabase
+        .from("user_profiles")
+        .select("current_streak, longest_streak")
+        .eq("telegram_user_id", user_id)
+        .single(),
     ]);
 
     if (analysesError || waterIntakesError) {
@@ -136,6 +144,17 @@ Deno.serve(async (req: Request) => {
         },
       );
     }
+
+    // Get streak information from user profile
+    // If profile is not found, use default values (0)
+    if (profileError) {
+      console.warn(
+        "User profile not found or error fetching profile:",
+        profileError.message,
+      );
+    }
+    const currentStreak = userProfile?.current_streak ?? 0;
+    const longestStreak = userProfile?.longest_streak ?? 0;
 
     // Calculate water statistics
     const totalWaterIntake = waterCount || 0;
@@ -191,6 +210,8 @@ Deno.serve(async (req: Request) => {
         total_water_intake: totalWaterIntake,
         total_water_ml: totalWaterMl,
         avg_daily_water: avgDailyWater,
+        current_streak: currentStreak,
+        longest_streak: longestStreak,
       };
 
       return new Response(
@@ -363,6 +384,8 @@ Deno.serve(async (req: Request) => {
       total_water_intake: totalWaterIntake,
       total_water_ml: totalWaterMl,
       avg_daily_water: avgDailyWater,
+      current_streak: currentStreak,
+      longest_streak: longestStreak,
     };
 
     return new Response(

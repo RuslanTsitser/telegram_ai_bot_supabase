@@ -48,7 +48,9 @@ curl -X POST "https://your-project.supabase.co/functions/v1/load-user-stats" \
     "active_days": 15,
     "total_water_intake": 42,
     "total_water_ml": 8500,
-    "avg_daily_water": 566.7
+    "avg_daily_water": 566.7,
+    "current_streak": 5,
+    "longest_streak": 12
   }
 }
 ```
@@ -73,6 +75,8 @@ curl -X POST "https://your-project.supabase.co/functions/v1/load-user-stats" \
 | `total_water_intake` | number | Общее количество записей о потреблении воды |
 | `total_water_ml` | number | Общее количество выпитой воды в миллилитрах |
 | `avg_daily_water` | number \| null | Среднее потребление воды в день в миллилитрах (округлено до 1 знака) |
+| `current_streak` | number | Текущий стрик пользователя (количество дней подряд с анализами) |
+| `longest_streak` | number | Самый длинный стрик пользователя за все время |
 
 ## Особенности расчета
 
@@ -126,6 +130,19 @@ curl -X POST "https://your-project.supabase.co/functions/v1/load-user-stats" \
   - Округляется до 1 знака после запятой
   - Может быть `null` если нет записей о воде
 
+### Стрики пользователя
+
+- **Текущий стрик** (`current_streak`): количество дней подряд, в которые пользователь делал анализы еды
+  - Обновляется автоматически при каждом новом анализе
+  - Если пользователь пропустил день, стрик сбрасывается
+  - Минимальное значение: 0 (если нет анализов)
+- **Самый длинный стрик** (`longest_streak`): максимальное количество дней подряд с анализами за все время использования бота
+  - Сохраняет рекорд пользователя
+  - Обновляется только если текущий стрик превышает предыдущий рекорд
+  - Минимальное значение: 0 (если нет анализов)
+- Данные берутся из таблицы `user_profiles`
+- Если профиль пользователя не найден, оба значения равны 0
+
 ## Коды ошибок
 
 | Код | Описание |
@@ -142,6 +159,7 @@ curl -X POST "https://your-project.supabase.co/functions/v1/load-user-stats" \
 - **Оптимизация** - эффективно обрабатывает большие объемы данных пользователя
 - **Гибкость** - корректно обрабатывает случаи отсутствия данных
 - **Учет воды** - включает статистику потребления воды с расчетом в миллилитрах
+- **Стрики** - включает информацию о текущем и самом длинном стрике пользователя
 
 ## Тестирование
 
@@ -174,7 +192,9 @@ curl -X POST "https://cmztehabpooymgggejgg.supabase.co/functions/v1/load-user-st
     "active_days": 127,
     "total_water_intake": 156,
     "total_water_ml": 31200,
-    "avg_daily_water": 245.7
+    "avg_daily_water": 245.7,
+    "current_streak": 7,
+    "longest_streak": 15
   }
 }
 ```
@@ -212,6 +232,7 @@ const response = await fetch('/functions/v1/load-user-stats', {
 const { data } = await response.json();
 console.log(`Пользователь провел ${data.total_analyses} анализов`);
 console.log(`Выпито воды: ${data.total_water_ml} мл (${data.avg_daily_water} мл/день)`);
+console.log(`Текущий стрик: ${data.current_streak} дней, рекорд: ${data.longest_streak} дней`);
 ```
 
 ### Обработка пустого профиля
