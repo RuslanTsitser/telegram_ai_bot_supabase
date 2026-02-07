@@ -52,6 +52,7 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-profiles?limit=5
       "weight_kg": 70,
       "target_weight_kg": 65,
       "activity_level": 2,
+      "timezone": "America/Sao_Paulo",
       "created_at": "2024-01-15T10:30:00Z",
       "updated_at": "2024-01-15T10:30:00Z"
     }
@@ -79,6 +80,7 @@ curl -X GET "https://your-project.supabase.co/functions/v1/load-profiles?limit=5
 | `weight_kg` | number | Вес в килограммах |
 | `target_weight_kg` | number | Целевой вес в килограммах |
 | `activity_level` | number | Уровень активности (0-4) |
+| `timezone` | string \| null | Часовой пояс пользователя (IANA, напр. `America/Sao_Paulo`) |
 | `created_at` | string | Дата создания профиля |
 | `updated_at` | string | Дата последнего обновления |
 

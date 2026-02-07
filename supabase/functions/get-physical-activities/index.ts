@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Получаем user_id по telegram_user_id
+    // Получаем user по telegram_user_id и timezone из профиля
     const { data: user, error: userError } = await supabase
       .from("users")
       .select("id")
@@ -112,6 +112,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("timezone")
+      .eq("telegram_user_id", parseInt(telegramUserId))
+      .maybeSingle();
+
+    const timezone = profile?.timezone ?? "UTC";
+
     // Строим запрос - выбираем только необходимые поля
     let query = supabase
       .from("physical_activities")
@@ -121,12 +129,14 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", parseInt(telegramUserId))
       .order("created_at", { ascending: false });
 
-    // Добавляем фильтры по датам
+    // Фильтры по датам: start_date и end_date — даты в часовом поясе пользователя
     if (startDate) {
-      query = query.gte("created_at", `${startDate}T00:00:00Z`);
+      const bounds = getDateBoundsInUTC(startDate, timezone);
+      query = query.gte("created_at", bounds.start);
     }
     if (endDate) {
-      query = query.lte("created_at", `${endDate}T23:59:59Z`);
+      const bounds = getDateBoundsInUTC(endDate, timezone);
+      query = query.lte("created_at", bounds.end);
     }
 
     // Получаем все данные и всегда группируем
@@ -136,9 +146,13 @@ Deno.serve(async (req: Request) => {
       throw error;
     }
 
-    // Определяем тип группировки (по умолчанию по дням)
+    // Определяем тип группировки (по умолчанию по дням) в часовом поясе пользователя
     const groupType = groupBy || "day";
-    const groupedData = groupActivitiesByPeriod(activities || [], groupType);
+    const groupedData = groupActivitiesByPeriod(
+      activities || [],
+      groupType,
+      timezone,
+    );
 
     // Применяем пагинацию к группам
     const offset = (page - 1) * limit;
@@ -187,32 +201,96 @@ Deno.serve(async (req: Request) => {
   }
 });
 
+/** Границы дня в часовом поясе пользователя в UTC (для фильтрации по датам). */
+function getDateBoundsInUTC(
+  dateStr: string,
+  timezone: string,
+): { start: string; end: string } {
+  const noonUtc = new Date(dateStr + "T12:00:00.000Z").getTime();
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(new Date(noonUtc));
+  const get = (t: string) =>
+    parseInt(parts.find((p) => p.type === t)!.value, 10);
+  const localHour = get("hour");
+  const localMin = get("minute");
+  const localSec = get("second");
+  const startOfDayUtc =
+    noonUtc - (localHour * 3600 + localMin * 60 + localSec) * 1000;
+  const endOfDayUtc = startOfDayUtc + 86400000 - 1;
+  return {
+    start: new Date(startOfDayUtc).toISOString(),
+    end: new Date(endOfDayUtc).toISOString(),
+  };
+}
+
+/** Дата YYYY-MM-DD в часовом поясе пользователя для момента created_at. */
+function getLocalDateString(isoTimestamp: string, timezone: string): string {
+  return new Date(isoTimestamp).toLocaleDateString("en-CA", {
+    timeZone: timezone,
+  });
+}
+
+/** Локальные год, месяц, день в поясе пользователя. */
+function getLocalDateParts(
+  isoTimestamp: string,
+  timezone: string,
+): { year: number; month: number; day: number } {
+  const date = new Date(isoTimestamp);
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const get = (t: string) =>
+    parseInt(parts.find((p) => p.type === t)!.value, 10);
+  return {
+    year: get("year"),
+    month: get("month") - 1,
+    day: get("day"),
+  };
+}
+
 function groupActivitiesByPeriod(
   activities: PhysicalActivityData[],
   groupBy: "day" | "week" | "month",
+  timezone: string,
 ): any[] {
   const groups = new Map<string, PhysicalActivityData[]>();
 
   activities.forEach((activity) => {
-    const date = new Date(activity.created_at);
     let period: string;
 
     switch (groupBy) {
       case "day":
-        period = date.toISOString().split("T")[0]; // YYYY-MM-DD
+        period = getLocalDateString(activity.created_at, timezone);
         break;
-      case "week":
-        const year = date.getFullYear();
-        const week = getWeekNumber(date);
+      case "week": {
+        const { year, month, day } = getLocalDateParts(
+          activity.created_at,
+          timezone,
+        );
+        const week = getWeekNumber(new Date(Date.UTC(year, month, day)));
         period = `${year}-W${week.toString().padStart(2, "0")}`;
         break;
-      case "month":
-        period = `${date.getFullYear()}-${
-          (date.getMonth() + 1).toString().padStart(2, "0")
-        }`;
+      }
+      case "month": {
+        const { year, month } = getLocalDateParts(
+          activity.created_at,
+          timezone,
+        );
+        period = `${year}-${(month + 1).toString().padStart(2, "0")}`;
         break;
+      }
       default:
-        period = date.toISOString().split("T")[0];
+        period = getLocalDateString(activity.created_at, timezone);
     }
 
     if (!groups.has(period)) {

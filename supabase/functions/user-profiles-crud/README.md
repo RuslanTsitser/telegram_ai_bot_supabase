@@ -28,6 +28,7 @@ curl -X GET "https://your-project.supabase.co/functions/v1/user-profiles-crud?te
     "gender": 0,
     "birth_year": 1990,
     "activity_level": 2,
+    "timezone": "America/Sao_Paulo",
     "created_at": "2024-01-01T00:00:00Z",
     "updated_at": "2024-01-01T12:00:00Z"
   }
@@ -46,7 +47,8 @@ curl -X POST "https://your-project.supabase.co/functions/v1/user-profiles-crud" 
     "target_weight_kg": 65,
     "gender": 0,
     "birth_year": 1990,
-    "activity_level": 2
+    "activity_level": 2,
+    "timezone": "America/Sao_Paulo"
   }'
 ```
 
@@ -71,7 +73,8 @@ curl -X PUT "https://your-project.supabase.co/functions/v1/user-profiles-crud" \
     "target_weight_kg": 70,
     "gender": 0,
     "birth_year": 1990,
-    "activity_level": 3
+    "activity_level": 3,
+    "timezone": "Europe/Moscow"
   }'
 ```
 
@@ -109,6 +112,7 @@ curl -X DELETE "https://your-project.supabase.co/functions/v1/user-profiles-crud
 | `gender` | number | Пол | 0 (мужской) или 1 (женский) |
 | `birth_year` | number | Год рождения | 1900-текущий год |
 | `activity_level` | number | Уровень активности | 0-4 |
+| `timezone` | string | Часовой пояс (IANA, напр. `America/Sao_Paulo`, `Europe/Moscow`) | Валидный IANA; по умолчанию `UTC`. При PUT можно не передавать — текущее значение сохранится |
 
 ## Уровни активности
 

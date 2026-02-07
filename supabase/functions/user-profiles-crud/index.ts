@@ -9,6 +9,7 @@ interface UserProfileRequest {
   gender?: number | null;
   birth_year?: number | null;
   activity_level?: number | null;
+  timezone?: string | null;
 }
 
 interface UserProfile {
@@ -20,8 +21,18 @@ interface UserProfile {
   gender: number | null;
   birth_year: number | null;
   activity_level: number | null;
+  timezone: string | null;
   created_at: string;
   updated_at: string;
+}
+
+function validateTimezone(tz: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -217,6 +228,7 @@ async function handleCreate(
       gender: body.gender,
       birth_year: body.birth_year,
       activity_level: body.activity_level,
+      timezone: body.timezone ?? "UTC",
     })
     .select()
     .single();
@@ -306,6 +318,7 @@ async function handleUpdate(
       gender: body.gender,
       birth_year: body.birth_year,
       activity_level: body.activity_level,
+      ...(body.timezone !== undefined && { timezone: body.timezone ?? "UTC" }),
       updated_at: new Date().toISOString(),
     }, { onConflict: "telegram_user_id" })
     .select()
@@ -446,6 +459,17 @@ function validateProfileData(body: UserProfileRequest): string[] {
     (body.activity_level < 0 || body.activity_level > 4)
   ) {
     validationErrors.push("activity_level must be between 0 and 4");
+  }
+
+  if (
+    body.timezone !== undefined &&
+    body.timezone !== null &&
+    body.timezone !== "" &&
+    !validateTimezone(body.timezone)
+  ) {
+    validationErrors.push(
+      "timezone must be a valid IANA timezone (e.g. America/Sao_Paulo, Europe/Moscow)",
+    );
   }
 
   return validationErrors;

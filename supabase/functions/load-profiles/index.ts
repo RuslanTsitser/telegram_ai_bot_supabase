@@ -10,6 +10,7 @@ interface UserProfile {
   weight_kg: number | null;
   target_weight_kg: number | null;
   activity_level: number | null;
+  timezone: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -120,6 +121,7 @@ Deno.serve(async (req: Request) => {
         weight_kg,
         target_weight_kg,
         activity_level,
+        timezone,
         created_at,
         updated_at
       `)
